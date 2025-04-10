@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -14,12 +13,9 @@ class UserController extends Controller
             'password' => ['required', 'min:8','max:255']
         ]);
 
-
         $incomingFields['password'] = bcrypt($incomingFields['password']);
         User::create($incomingFields);
         
-
-
         return 'Hello from our Controller';
     }
 }

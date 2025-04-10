@@ -6,5 +6,5 @@ Route::get('/', function () {
     return view('test');
 });
 
-Route::post('/register', [UserController::class, 'register']);
+Route::post('/register', [UserController::class,'register']);
 
