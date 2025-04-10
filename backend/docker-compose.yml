@@ -3,14 +3,7 @@ version: '3'
 #les dependances: web server, database, php my admin
 services:
   laravel_app:
-    build: 
-      args:
-        user: laravel_user
-        uid: 1000
-      #dockerfile path
-      context: ./
-      dockerfile: Dockerfile
-    image: laravel_app_image
+    image: i5m4il/laravel_app_image:latest
     container_name: laravel_app
     restart: unless-stopped
     depends_on:
