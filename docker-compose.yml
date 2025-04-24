@@ -15,6 +15,18 @@ services:
 #network something that alows containers to communicate with each other
     networks:
       - laravel_app_network
+  
+  angular_app:
+    image: i5m4il/angular_app_image:latest
+    container_name: angular_app
+    restart: unless-stopped
+    depends_on:
+      - laravel_app
+    working_dir: /var/www
+    #where ur files exist inside the container
+    volumes:
+      - ./:/var/www
+
   #nginx service
   laravel_webserver:
     image: nginx:alpine
