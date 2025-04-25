@@ -17,15 +17,19 @@ services:
       - laravel_app_network
   
   angular_app:
-    image: i5m4il/angular_app_image:latest
+    build: 
+      context: ./angular
+      dockerfile: Dockerfile
+    image: angular_app_image
     container_name: angular_app
     restart: unless-stopped
-    depends_on:
-      - laravel_app
-    working_dir: /var/www
-    #where ur files exist inside the container
+    ports:
+      - "4300:4200"
     volumes:
-      - ./:/var/www
+      - ./angular:/app
+      - /app/node_modules
+    networks:
+      - laravel_app_network
 
   #nginx service
   laravel_webserver:
