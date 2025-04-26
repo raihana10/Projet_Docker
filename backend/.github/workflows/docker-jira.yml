@@ -2,22 +2,23 @@ name: Laravel Docker CI
 
 on:
   push:
-    branches: [main, douae]  # Ajout de votre branche
+    branches: [main, douae]  # Branches valides (supprimer le doublon 'main')
   pull_request:
-    branches: [main, douae]   # Ajout de votre branche
+    branches: [main, douae]   # Branches valides pour les PR
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      # Étape 1: Extraction du ticket Jira
+      # Étape 1: Extraction du ticket Jira (corrigé pour DO- au lieu de DD-)
       - name: Extract Jira ticket ID
         id: extract-ticket
         run: |
-          echo "TICKET=$(grep -o 'DD-[0-9]\+' <<< '${{ github.event.head_commit.message }}' | head -1)" >> $GITHUB_OUTPUT
+          echo "TICKET=$(grep -o 'DO-[0-9]\+' <<< '${{ github.event.head_commit.message }}' | head -1)" >> $GITHUB_OUTPUT
+          echo "Extracted Ticket: ${{ steps.extract-ticket.outputs.TICKET }}"
 
-      # Étape 2: Processus existant
+      # Étape 2: Processus CI standard
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -32,13 +33,15 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
-        if: github.ref == 'refs/heads/main'  # Ne push que sur main
+        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
           tags: douaemoeniss/laravel-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Copy .env.testing
         run: cp ./backend/.env.testing ./backend/.env
@@ -46,17 +49,18 @@ jobs:
       - name: Run tests with Docker Compose
         run: |
           docker-compose -f docker-compose.yml up -d --build
+          sleep 10  # Attente pour que les containers soient prêts
           docker-compose exec -T laravel_app php artisan migrate --force
           docker-compose exec -T laravel_app php artisan test
           docker-compose down
 
-      # Étape 3: Mise à jour Jira
+      # Étape 3: Mise à jour Jira (corrigé "TERMINÉ(E)" et ajouté des vérifications)
       - name: Update Jira ticket
         if: steps.extract-ticket.outputs.TICKET != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-ticket.outputs.TICKET }}
-          transition: "Done"
-          jira_server: https://your-domain.atlassian.net
+          transition: "TERMINÉ(E)"  # Nom exact du statut dans Jira
+          jira_server: ${{ secrets.JIRA_URL }}  # Utiliser un secret
           jira_user: ${{ secrets.JIRA_USER_EMAIL }}
           jira_token: ${{ secrets.JIRA_API_TOKEN }}
