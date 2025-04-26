@@ -16,21 +16,6 @@ services:
     networks:
       - laravel_app_network
   
-  angular_app:
-    build: 
-      context: ./angular
-      dockerfile: Dockerfile
-    image: angular_app_image
-    container_name: angular_app
-    restart: unless-stopped
-    ports:
-      - "4300:4200"
-    volumes:
-      - ./angular:/app
-      - /app/node_modules
-    networks:
-      - laravel_app_network
-
   #nginx service
   laravel_webserver:
     image: nginx:alpine
