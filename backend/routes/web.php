@@ -7,10 +7,15 @@ Route::get('/', function () {
     return view('test');
 });
 
+
 Route::post('/register', [utilisateurController::class,'register']);
 
-Route::post('/logout', [utilisateurController::class,'logout']);
+Route::get('/test2', function () {
+    return view('test2');
+});
 
-Route::post('/login', [utilisateurController::class,'login']);
+// Route::post('/logout', [utilisateurController::class,'logout']);
 
-Route::post('/create-dette', [debtController::class,'createDebt']);
+// Route::post('/login', [utilisateurController::class,'login']);
+
+// Route::post('/create-dette', [debtController::class,'createDebt']);

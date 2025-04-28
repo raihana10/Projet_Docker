@@ -38,7 +38,7 @@ class utilisateurController extends Controller
         $incomingFields['mot_de_passe'] = bcrypt($incomingFields['mot_de_passe']);
         $utilisateur = utilisateur::create($incomingFields);
         auth()->login($utilisateur);
-        return redirect('/');
+        return redirect('/test2');
     }
     
 }
