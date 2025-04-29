@@ -68,15 +68,26 @@ jobs:
             echo "jira_key=" >> $GITHUB_OUTPUT
             exit 0  # Sortir sans erreur si pas de ticket Jira
           fi
+<<<<<<< HEAD
           #test test
+=======
+>>>>>>> ffc14e1c5a08c6b1fb4236e14135981304605c02
       
       - name: Transition Jira Issue
         if: steps.extract_jira_key.outputs.jira_key != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract_jira_key.outputs.jira_key }}
+<<<<<<< HEAD
           transition: "TERMINE"
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+=======
+          transition: "Done"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+>>>>>>> ffc14e1c5a08c6b1fb4236e14135981304605c02
