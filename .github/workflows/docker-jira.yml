@@ -1,81 +1,44 @@
-name: Laravel Docker CI
+name: Jira Transition Automation
+
 on:
-  # Déclenché lors d'un push sur n'importe quelle branche
-  push:
-    branches: ['*']
-  # Déclenché lors d'une pull request vers main
-  pull_request:
-    branches: [main]
-  # Déclenché lorsqu'une PR est fermée (mergée ou refusée)
   pull_request_target:
     types: [closed]
 
 jobs:
-  # Job qui s'exécute pour tous les push et pull requests
-  build-and-test:
+  jira-transition:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    
     steps:
-      - name: Placeholder step
-        run: echo "Build and test steps would go here"
-
-  # Job qui s'exécute uniquement quand une PR est mergée dans main
-  update-jira-status:
-    # Dépend du job build-and-test
-    needs: build-and-test
-    # Condition: uniquement quand une PR est mergée
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug Event
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "PR merged: ${{ github.event.pull_request.merged }}"
-          echo "PR base branch: ${{ github.event.pull_request.base.ref }}"
-          echo "PR head branch: ${{ github.event.pull_request.head.ref }}"
-          echo "PR title: ${{ github.event.pull_request.title }}"
-          echo "PR author: ${{ github.event.pull_request.user.login }}"
-      
       - name: Extract Jira Issue Key
         id: extract_jira_key
         run: |
-          # Extraire les informations de la PR
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          
-          echo "Checking PR title: $PR_TITLE"
-          echo "Checking PR body: $PR_BODY"
-          echo "Checking branch name: $PR_HEAD_BRANCH"
-          
-          # Chercher un code Jira dans le titre de la PR
-          JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          
-          # Si pas trouvé dans le titre, chercher dans la description
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
-          
-          # Si toujours pas trouvé, chercher dans le nom de la branche
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_HEAD_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
-          
+          # Recherche dans titre, description et nom de branche
+          sources=(
+            "${{ github.event.pull_request.title }}"
+            "${{ github.event.pull_request.body }}"
+            "${{ github.event.pull_request.head.ref }}"
+          )
+
+          for source in "${sources[@]}"; do
+            JIRA_KEY=$(echo "$source" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+            [ -n "$JIRA_KEY" ] && break
+          done
+
           if [ -n "$JIRA_KEY" ]; then
             echo "Found Jira ticket: $JIRA_KEY"
-            echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
+            echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
             echo "No Jira ticket found"
-            echo "jira_key=" >> $GITHUB_OUTPUT
-            exit 0  # Sortir sans erreur si pas de ticket Jira
+            echo "issue=" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Transition Jira Issue
-        if: steps.extract_jira_key.outputs.jira_key != ''
+
+      - name: Transition Jira Issue to TERMINÉ(E)
+        if: steps.extract_jira_key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
-          issue: ${{ steps.extract_jira_key.outputs.jira_key }}
-          transition: "TERMINE"
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          issue: ${{ steps.extract_jira_key.outputs.issue }}
+          transition: "TERMINÉ(E)"
+          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
+          username: ${{ secrets.JIRA_USER_EMAIL }}
+          password: ${{ secrets.JIRA_API_TOKEN }}
