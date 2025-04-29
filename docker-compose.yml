@@ -27,6 +27,7 @@ services:
       sh -c "composer install &&
              php artisan config:clear &&
              php artisan migrate --force &&
+             php artisan key:generate &&
              php-fpm"
 
   #nginx service
