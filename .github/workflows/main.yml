@@ -2,23 +2,23 @@ name: Laravel Docker CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   pull_request_target:
     types: [closed]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-  
-   
+    steps:
+      - name: Placeholder step
+        run: echo "Build and test steps would go here"
 
   update-jira-status:
     needs: build-and-test
     if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    
     steps:
       - name: Extract Jira Issue Key
         id: extract_jira_key
