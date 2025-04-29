@@ -1,0 +1,60 @@
+name: Laravel Docker CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+  
+    steps:  
+      - name: Run tests with Docker Compose
+        run: |
+          docker-compose -f docker-compose.yml up -d --build
+          docker-compose exec -T laravel_app php artisan migrate --force
+          docker-compose exec -T laravel_app php artisan test
+          docker-compose down
+
+  update-jira-status:
+    needs: build-and-test
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Extract Jira Issue Key
+        id: extract_jira_key
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          
+          # Look for Jira ticket pattern in PR title (e.g., PROJECT-123)
+          JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+          
+          # If not found in title, look in PR description
+          if [ -z "$JIRA_KEY" ]; then
+            JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+          fi
+          
+          if [ -n "$JIRA_KEY" ]; then
+            echo "Found Jira ticket: $JIRA_KEY"
+            echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
+          else
+            echo "No Jira ticket found"
+            echo "jira_key=" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Transition Jira Issue
+        if: steps.extract_jira_key.outputs.jira_key != ''
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.extract_jira_key.outputs.jira_key }}
+          transition: "Done"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
