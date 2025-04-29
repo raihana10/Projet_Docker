@@ -10,6 +10,16 @@ jobs:
     if: github.event.pull_request.merged == true
     
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Jira
+        uses: atlassian/gajira-login@master
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
       - name: Extract Jira Issue Key
         id: extract_jira_key
         run: |
@@ -26,19 +36,16 @@ jobs:
           
           if [ -n "$JIRA_KEY" ]; then
             echo "Found Jira ticket: $JIRA_KEY"
-            echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
+            echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
             echo "No Jira ticket found"
-            echo "jira_key=" >> $GITHUB_OUTPUT
+            echo "issue=" >> $GITHUB_OUTPUT
+          exit 0
           fi
-      
+
       - name: Transition Jira Issue
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        uses: atlassian/gajira-transition@v3
+        if: steps.extract_jira_key.outputs.issue != ''
+        uses: atlassian/gajira-transition@master
         with:
-          issue: ${{ steps.extract_jira_key.outputs.jira_key }}
+          issue: ${{ steps.extract_jira_key.outputs.issue }}
           transition: "Done"
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
