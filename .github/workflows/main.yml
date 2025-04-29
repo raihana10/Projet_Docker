@@ -1,5 +1,4 @@
 name: Laravel Docker CI
-
 on:
   push:
     branches: [main]
@@ -17,7 +16,9 @@ jobs:
 
   update-jira-status:
     needs: build-and-test
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+    if: |
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Extract Jira Issue Key
@@ -25,6 +26,9 @@ jobs:
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body }}"
+          
+          echo "Checking PR title: $PR_TITLE"
+          echo "Checking PR body: $PR_BODY"
           
           # Look for Jira ticket pattern in PR title (e.g., PROJECT-123)
           JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
@@ -40,7 +44,14 @@ jobs:
           else
             echo "No Jira ticket found"
             echo "jira_key=" >> $GITHUB_OUTPUT
+            exit 0  # Exit gracefully if no Jira key found
           fi
+      
+      - name: Debug - Event Info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR merged: ${{ github.event.pull_request.merged }}"
+          echo "Jira key: ${{ steps.extract_jira_key.outputs.jira_key }}"
       
       - name: Transition Jira Issue
         if: steps.extract_jira_key.outputs.jira_key != ''
