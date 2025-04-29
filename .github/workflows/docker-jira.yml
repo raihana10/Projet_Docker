@@ -1,42 +1,49 @@
-name: Jira Transition Automation
+name: Jira Transition Workflow
 
 on:
   pull_request_target:
     types: [closed]
 
 jobs:
-  jira-transition:
+  transition-issue:
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
     
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Extract Jira Issue Key
-        id: extract_jira_key
+        id: extract-key
         run: |
-          sources=(
-            "${{ github.event.pull_request.title }}"
-            "${{ github.event.pull_request.body }}"
-            "${{ github.event.pull_request.head.ref }}"
-          )
-
-          for source in "${sources[@]}"; do
-            JIRA_KEY=$(echo "$source" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
-            [ -n "$JIRA_KEY" ] && break
-          done
-
+          echo "PR Title: ${{ github.event.pull_request.title }}"
+          JIRA_KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          
+          if [ -z "$JIRA_KEY" ]; then
+            JIRA_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          fi
+          
           if [ -n "$JIRA_KEY" ]; then
+            echo "Found Jira issue: $JIRA_KEY"
             echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
+            echo "No Jira issue found"
             echo "issue=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Transition Jira Issue
-        if: steps.extract_jira_key.outputs.issue != ''
+      - name: Configure Jira CLI
+        if: steps.extract-key.outputs.issue != ''
+        run: |
+          mkdir -p /home/runner/jira
+          cat << EOF > /home/runner/jira/config.yml
+          baseUrl: ${{ secrets.JIRA_BASE_URL }}
+          email: ${{ secrets.JIRA_USER_EMAIL }}
+          token: ${{ secrets.JIRA_API_TOKEN }}
+          EOF
+
+      - name: Transition Issue
+        if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
-          issue: ${{ steps.extract_jira_key.outputs.issue }}
+          issue: ${{ steps.extract-key.outputs.issue }}
           transition: "TERMINÉ(E)"
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
