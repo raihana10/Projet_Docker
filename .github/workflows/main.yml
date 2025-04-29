@@ -1,14 +1,38 @@
 name: Jira Integration
 
 on:
+  push:
+    branches:
+      - SCRUM-2-team-jira-github-douae
+
   pull_request_target:
     types: [closed]
 
 jobs:
-  update-jira-status:
+  create-pull-request:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        uses: cli/cli-action@v2
+
+      - name: Authenticate GitHub CLI
+        run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR (if not exists)
+        run: |
+          gh pr list --head SCRUM-2-team-jira-github-douae --base main --json number | grep -q '"number":' || \
+          gh pr create \
+            --title "SCRUM-2: Intégration Jira" \
+            --body "PR automatique liée à Jira" \
+            --base main \
+            --head SCRUM-2-team-jira-github-douae
+
+  update-jira-status:
     if: github.event.pull_request.merged == true
-    
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,22 +49,20 @@ jobs:
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body }}"
-          
-          # Look for Jira ticket pattern in PR title (e.g., PROJECT-123)
+
           JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          
-          # If not found in title, look in PR description
+
           if [ -z "$JIRA_KEY" ]; then
             JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
           fi
-          
+
           if [ -n "$JIRA_KEY" ]; then
             echo "Found Jira ticket: $JIRA_KEY"
             echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
             echo "No Jira ticket found"
             echo "issue=" >> $GITHUB_OUTPUT
-          exit 0
+            exit 0
           fi
 
       - name: Transition Jira Issue
