@@ -13,7 +13,6 @@ jobs:
       - name: Extract Jira Issue Key
         id: extract_jira_key
         run: |
-          # Recherche dans titre, description et nom de branche
           sources=(
             "${{ github.event.pull_request.title }}"
             "${{ github.event.pull_request.body }}"
@@ -26,19 +25,18 @@ jobs:
           done
 
           if [ -n "$JIRA_KEY" ]; then
-            echo "Found Jira ticket: $JIRA_KEY"
             echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira ticket found"
             echo "issue=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Transition Jira Issue to TERMINÉ(E)
+      - name: Transition Jira Issue
         if: steps.extract_jira_key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract_jira_key.outputs.issue }}
           transition: "TERMINÉ(E)"
-          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
-          username: ${{ secrets.JIRA_USER_EMAIL }}
-          password: ${{ secrets.JIRA_API_TOKEN }}
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
