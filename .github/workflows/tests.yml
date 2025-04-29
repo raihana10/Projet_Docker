@@ -1,0 +1,27 @@
+tests:
+  - name: Homepage accessible
+    description: La page d'accueil doit répondre avec un code 200
+    route: /
+    method: GET
+    expected_status: 200
+    expected_text: "Bonjour"
+
+  - name: Accès invité à /dashboard
+    description: Un invité ne doit pas accéder au dashboard
+    route: /dashboard
+    method: GET
+    expected_status: 302
+    expected_redirect: /login
+
+  
+
+  - name: Création d'utilisateur
+    description: Tester que l'utilisateur est bien enregistré en base
+    type: database
+    action: create_user
+    input:
+      email: test@example.com
+    expected_db_check:
+      table: users
+      conditions:
+        email: test@example.com
