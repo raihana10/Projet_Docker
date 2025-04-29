@@ -14,23 +14,8 @@ services:
       - ./:/var/www
     networks:
       - laravel_app_network
-
-  # Service Angular Frontend
-  angular_frontend:
-
-    image: zakariyaeallouche/mon-projet-angular
-    container_name: angular_frontend_container
-    restart: unless-stopped
-    ports:
-      - "4200:80"
-    working_dir: /var/www
-    # Où se trouvent les fichiers dans le container
-    volumes:
-      - ./:/var/www
-    networks:
-      - laravel_app_network
-
-  # Service Nginx
+  
+  #nginx service ismail's:backend/docker-compose.yml
   laravel_webserver:
     image: nginx:alpine
     container_name: laravel_app_network
