@@ -68,6 +68,7 @@ jobs:
             echo "jira_key=" >> $GITHUB_OUTPUT
             exit 0  # Sortir sans erreur si pas de ticket Jira
           fi
+          #test test
       
       - name: Transition Jira Issue
         if: steps.extract_jira_key.outputs.jira_key != ''
