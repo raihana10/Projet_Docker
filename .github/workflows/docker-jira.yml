@@ -19,23 +19,59 @@ jobs:
           [ -z "$KEY" ] && KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
           echo "issue=${KEY:-NOT_FOUND}" >> $GITHUB_OUTPUT
 
-      - name: Create Jira config file
+      - name: Find Transition ID
+        if: steps.extract-key.outputs.issue != 'NOT_FOUND'
+        id: find-transition
         run: |
-          mkdir -p /home/runner/jira
-          # Important: S'assurer que baseUrl se termine SANS slash
-          BASEURL=$(echo "${{ secrets.JIRA_BASE_URL }}" | sed 's/\/$//')
-          cat > /home/runner/jira/config.yml << EOF
-          baseUrl: ${BASEURL}
-          email: ${{ secrets.JIRA_USER_EMAIL }}
-          apiToken: ${{ secrets.JIRA_API_TOKEN }}
-          EOF
-          # Vérifier le fichier créé
-          echo "Config file created at: /home/runner/jira/config.yml"
-          ls -la /home/runner/jira/
+          # Récupérer les transitions disponibles pour obtenir l'ID
+          TRANSITIONS_RESPONSE=$(curl -s \
+            --request GET \
+            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/${{ steps.extract-key.outputs.issue }}/transitions" \
+            --user "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            --header "Accept: application/json")
+          
+          echo "Transitions disponibles:"
+          echo "$TRANSITIONS_RESPONSE" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g'
+          
+          # Trouver l'ID de la transition "TERMINÉ(E)"
+          TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"TERMINÉ(E)"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+          
+          if [ -z "$TRANSITION_ID" ]; then
+            echo "Attention: Transition 'TERMINÉ(E)' non trouvée. Recherche de la transition 'Done'..."
+            TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"Done"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+          fi
+          
+          if [ -z "$TRANSITION_ID" ]; then
+            echo "❌ Échec: Aucune transition 'TERMINÉ(E)' ou 'Done' trouvée"
+            exit 1
+          else
+            echo "✅ ID de transition trouvé: $TRANSITION_ID"
+            echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
+          fi
 
       - name: Transition Jira Issue
-        if: steps.extract-key.outputs.issue != 'NOT_FOUND'
-        uses: atlassian/gajira-transition@v3
-        with:
-          issue: ${{ steps.extract-key.outputs.issue }}
-          transition: "TERMINÉ(E)"
+        if: steps.extract-key.outputs.issue != 'NOT_FOUND' && steps.find-transition.outputs.transition_id != ''
+        run: |
+          ISSUE_KEY="${{ steps.extract-key.outputs.issue }}"
+          TRANSITION_ID="${{ steps.find-transition.outputs.transition_id }}"
+          
+          echo "Transition de l'issue $ISSUE_KEY vers l'état 'TERMINÉ(E)' (ID: $TRANSITION_ID)..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            --request POST \
+            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/$ISSUE_KEY/transitions" \
+            --user "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}")
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$ d')
+          
+          if [[ "$HTTP_STATUS" -ge 200 && "$HTTP_STATUS" -lt 300 ]]; then
+            echo "✅ Issue $ISSUE_KEY transitionné avec succès vers 'TERMINÉ(E)'"
+          else
+            echo "❌ Échec de la transition de l'issue $ISSUE_KEY: HTTP $HTTP_STATUS"
+            echo "Réponse: $RESPONSE_BODY"
+            exit 1
+          fi
