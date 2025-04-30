@@ -17,3 +17,4 @@ Route::get('/profile', function () {
     return view('profile', ['user' => auth()->user()]);
 })->middleware('auth');
 Route::post('/profile/update', [App\Http\Controllers\UserController::class, 'updateProfile'])->middleware('auth');
+Route::get('/test2', [test2Controller::class, 'test2'])->middleware('auth');

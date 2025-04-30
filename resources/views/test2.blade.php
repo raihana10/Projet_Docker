@@ -167,10 +167,11 @@
             <div class="block">
                 <h3>Mes groupes</h3>
                 <ul>
-                    <li>ENSART</li>
-                    <li>aFI</li>
+                    @foreach($groups as $group)
+                        <li>{{ $group->name }}</li>
+                    @endforeach
                 </ul>
-                <button>+ Créer nouveau groupe</button>
+                <button onclick="location.href='/ajouter-groupe'">+ Créer nouveau groupe</button>
             </div>
 
             <div class="block">

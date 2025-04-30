@@ -13,4 +13,13 @@ class test2Controller extends Controller
         $user = Auth::user();
         return view('test2', compact('user'));
     }
+
+    public function test2()
+    {
+        $user = Auth::user();
+        $groups = $user->groups()->get(); // récupère les groupes de l'utilisateur connecté
+
+        return view('test2', compact('user', 'groups'));
+    }
+
 }
