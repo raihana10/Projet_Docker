@@ -31,33 +31,64 @@ jobs:
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
           
+          # Look in title first
           JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          [ -z "$JIRA_KEY" ] && JIRA_KEY=$(echo "$PR_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+          
+          # If not found in title, check branch name
+          if [ -z "$JIRA_KEY" ]; then
+            JIRA_KEY=$(echo "$PR_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+          fi
+          
+          # If still not found, check PR body
+          if [ -z "$JIRA_KEY" ]; then
+            JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+          fi
           
           if [ -n "$JIRA_KEY" ]; then
             echo "Found Jira key: $JIRA_KEY"
             echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira key found"
+            echo "No Jira key found in PR title, branch name, or body"
             echo "jira_key=" >> $GITHUB_OUTPUT
           fi
 
       - name: Verify Jira Configuration
+        if: steps.extract_jira_key.outputs.jira_key != ''
         run: |
-          echo "JIRA_URL: ${{ secrets.JIRA_URL }}"
-          if [[ ! "${{ secrets.JIRA_URL }}" =~ ^https:// ]]; then
+          # Trim trailing slashes from JIRA_URL if any exist
+          JIRA_URL="${{ secrets.JIRA_URL }}"
+          JIRA_URL="${JIRA_URL%/}"
+          
+          echo "Checking JIRA_URL format (masked)"
+          if [[ ! "$JIRA_URL" =~ ^https:// ]]; then
             echo "::error::JIRA_URL doit commencer par https://"
             exit 1
           fi
-          echo "Configuration valide"
+          
+          if [ -z "${{ secrets.JIRA_USER }}" ]; then
+            echo "::error::JIRA_USER n'est pas défini"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.JIRA_TOKEN }}" ]; then
+            echo "::error::JIRA_TOKEN n'est pas défini"
+            exit 1
+          fi
+          
+          echo "Configuration Jira valide"
 
       - name: Setup Jira Config
         if: steps.extract_jira_key.outputs.jira_key != ''
         run: |
           mkdir -p /home/runner/jira
+          # Ensure JIRA_URL has no trailing slash
+          JIRA_URL="${{ secrets.JIRA_URL }}"
+          JIRA_URL="${JIRA_URL%/}"
+          
           cat <<EOF > /home/runner/jira/config.yml
-          baseUrl: ${{ secrets.JIRA_URL }}
+          baseUrl: $JIRA_URL
           email: ${{ secrets.JIRA_USER }}
           apiToken: ${{ secrets.JIRA_TOKEN }}
           EOF
@@ -68,14 +99,62 @@ jobs:
         id: get_transition
         if: steps.extract_jira_key.outputs.jira_key != ''
         run: |
-          RESPONSE=$(curl -s -u "${{ secrets.JIRA_USER }}:${{ secrets.JIRA_TOKEN }}" \
-            "${{ secrets.JIRA_URL }}/rest/api/2/issue/${{ steps.extract_jira_key.outputs.jira_key }}/transitions")
-          echo "API Response: $RESPONSE"
-          TERMINATED_ID=$(echo "$RESPONSE" | jq -r '.transitions[] | select(.name == "TERMINÉ(E)") | .id')
+          # Ensure JIRA_URL has no trailing slash
+          JIRA_URL="${{ secrets.JIRA_URL }}"
+          JIRA_URL="${JIRA_URL%/}"
+          JIRA_ISSUE_KEY="${{ steps.extract_jira_key.outputs.jira_key }}"
+          API_URL="$JIRA_URL/rest/api/2/issue/$JIRA_ISSUE_KEY/transitions"
+          
+          echo "Appel API à: $API_URL (informations d'identification masquées)"
+          
+          # Tester la connexion sans authentification d'abord pour vérifier l'accessibilité du domaine
+          echo "Test de connexion à $JIRA_URL"
+          if ! curl -s -o /dev/null -I -w "%{http_code}" "$JIRA_URL" | grep -q "^[23]"; then
+            echo "::error::Impossible de se connecter à $JIRA_URL. Vérifiez l'URL et l'accessibilité."
+            exit 1
+          fi
+          
+          # Faire l'appel API réel avec authentification
+          echo "Récupération des transitions disponibles..."
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -u "${{ secrets.JIRA_USER }}:${{ secrets.JIRA_TOKEN }}" "$API_URL")
+          
+          # Extraire le code HTTP et le corps de la réponse
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d')
+          
+          echo "Code de statut HTTP: $HTTP_STATUS"
+          
+          # Vérifier le code de statut HTTP
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Échec de l'appel API avec le code $HTTP_STATUS. Réponse: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          # Vérifier si la réponse est un JSON valide
+          if ! echo "$RESPONSE_BODY" | jq -e . >/dev/null 2>&1; then
+            echo "::error::Réponse API invalide: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          # Afficher toutes les transitions disponibles pour le débogage
+          echo "Transitions disponibles:"
+          echo "$RESPONSE_BODY" | jq -r '.transitions[] | .name + " (ID: " + .id + ")"'
+          
+          # Rechercher l'ID de transition pour "TERMINÉ(E)"
+          TERMINATED_ID=$(echo "$RESPONSE_BODY" | jq -r '.transitions[] | select(.name == "TERMINÉ(E)") | .id')
+          
+          # Si nous ne trouvons pas exactement "TERMINÉ(E)", essayons avec une recherche insensible à la casse
+          if [ -z "$TERMINATED_ID" ]; then
+            echo "Recherche de transitions avec un nom similaire à 'TERMINÉ(E)'..."
+            TERMINATED_ID=$(echo "$RESPONSE_BODY" | jq -r '.transitions[] | select(.name | ascii_upcase | contains("TERMINE")) | .id' | head -1)
+          fi
+          
           if [ -n "$TERMINATED_ID" ]; then
+            echo "ID de transition trouvé: $TERMINATED_ID"
             echo "transitionId=$TERMINATED_ID" >> $GITHUB_OUTPUT
           else
-            echo "::error::Transition 'TERMINÉ(E)' non trouvée"
+            echo "::error::Transition 'TERMINÉ(E)' ou similaire non trouvée."
+            echo "Veuillez vérifier les noms de transition disponibles ci-dessus."
             exit 1
           fi
 
@@ -85,3 +164,8 @@ jobs:
         with:
           issue: ${{ steps.extract_jira_key.outputs.jira_key }}
           transitionId: ${{ steps.get_transition.outputs.transitionId }}
+      
+      - name: Report Success
+        if: success() && steps.extract_jira_key.outputs.jira_key != ''
+        run: |
+          echo "✅ Issue Jira ${{ steps.extract_jira_key.outputs.jira_key }} transitionné avec succès vers 'TERMINÉ(E)'"
