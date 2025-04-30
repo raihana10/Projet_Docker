@@ -21,57 +21,47 @@ jobs:
     steps:
       - name: Debug Event
         run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "PR merged: ${{ github.event.pull_request.merged }}"
-          echo "PR base branch: ${{ github.event.pull_request.base.ref }}"
-          echo "PR head branch: ${{ github.event.pull_request.head.ref }}"
-          echo "PR title: ${{ github.event.pull_request.title }}"
-          echo "PR author: ${{ github.event.pull_request.user.login }}"
-      
+          echo "Event details:"
+          echo "Action: ${{ github.event.action }}"
+          echo "Merged: ${{ github.event.pull_request.merged }}"
+          echo "Base Ref: ${{ github.event.pull_request.base.ref }}"
+
       - name: Extract Jira Issue Key
         id: extract_jira_key
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          
-          echo "Checking PR title: $PR_TITLE"
-          echo "Checking PR body: $PR_BODY"
-          echo "Checking branch name: $PR_HEAD_BRANCH"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
           
           JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
-          
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_HEAD_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
+          [ -z "$JIRA_KEY" ] && JIRA_KEY=$(echo "$PR_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
           
           if [ -n "$JIRA_KEY" ]; then
-            echo "Found Jira ticket: $JIRA_KEY"
+            echo "Found Jira key: $JIRA_KEY"
             echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira ticket found"
+            echo "No Jira key found"
             echo "jira_key=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Jira Config Directory
+      - name: Verify Jira Base URL
+        run: |
+          echo "JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}"
+          # Vérifie que l'URL commence bien par https://
+          if [[ ! "${{ secrets.JIRA_BASE_URL }}" =~ ^https:// ]]; then
+            echo "::error::JIRA_BASE_URL doit commencer par https://"
+            exit 1
+          fi
+
+      - name: Setup Jira Config
         if: steps.extract_jira_key.outputs.jira_key != ''
         run: |
           mkdir -p /home/runner/jira
-          echo "Jira config directory created"
-
-      - name: Setup Jira Config File
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        run: |
           cat <<EOF > /home/runner/jira/config.yml
           baseUrl: ${{ secrets.JIRA_BASE_URL }}
           email: ${{ secrets.JIRA_USER_EMAIL }}
           apiToken: ${{ secrets.JIRA_API_TOKEN }}
           EOF
-          echo "Jira config file created:"
+          echo "Config file content:"
           cat /home/runner/jira/config.yml
 
       - name: Transition Jira Issue
