@@ -33,18 +33,12 @@ jobs:
             echo "issue=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to Jira
-        if: steps.extract-key.outputs.issue != ''
-        uses: atlassian/gajira-login@v3
-        with:
-          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
-          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
-          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
-
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
+          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
+          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
+          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
           issue: ${{ steps.extract-key.outputs.issue }}
-          # soit le nom de la transition, soit son ID
           transition: "TERMINÉ(E)"
