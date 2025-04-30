@@ -118,7 +118,32 @@
         <span style="margin-right: 10px;">Bonjour, {{ $user->name ?? '' }}</span>
         <a href="#">❓</a>
         <a href="#">👤</a>
-        <a href="#">👥</a>
+        <span style="position:relative;">
+            <a href="#" id="friends-icon" onclick="toggleFriendsBlock(event)">👥</a>
+            <div id="friends-block" style="display:none; position:absolute; right:0; top:30px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); padding:16px; min-width:220px; z-index:2000;">
+                <form action="{{ route('friends.add') }}" method="POST" style="margin-bottom:10px;">
+                    @csrf
+                    <input type="text" name="friend_name" placeholder="Nom de l'ami" required style="width:70%;padding:4px;">
+                    <button type="submit" style="padding:4px 8px; background:#0056b3; color:white; border:none; border-radius:4px;">Ajouter</button>
+                </form>
+                <div style="margin-bottom:8px; font-weight:bold;">Mes amis :</div>
+                <ul style="max-height:120px;overflow-y:auto;padding-left:10px;">
+                    @forelse($friends as $friend)
+                        <li>{{ $friend->name }}</li>
+                    @empty
+                        <li style="color:#888;">Aucun ami ajouté</li>
+                    @endforelse
+                </ul>
+                <button onclick="document.getElementById('friends-block').style.display='none'" style="margin-top:10px;">Fermer</button>
+            </div>
+        </span>
+        <script>
+            function toggleFriendsBlock(e) {
+                e.preventDefault();
+                const block = document.getElementById('friends-block');
+                block.style.display = block.style.display === 'block' ? 'none' : 'block';
+            }
+        </script>
         <a href="#" id="settings-icon">⚙️</a>
         <div id="settings-menu" style="display:none; position:absolute; right:30px; top:60px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); padding:10px 0; min-width:140px; z-index:1000;">
             <a href="/profile" style="display:block; padding:8px 20px; color:#333; text-decoration:none;">Voir le profil</a>
@@ -154,12 +179,21 @@
     <div class="sidebar">
         <ul>
             <li><a href="/test2">🏠 Accueil</a></li>
-            <li><a href="#">💰 Transactions</a></li>
+            <li><a href="#">💰 Emprunts </a></li>
             <li><a href="#">➕ Nouveau transaction</a></li>
             <li><a href="#">📊 Rapport</a></li>
             <li><a href="#">📅 Calendrier</a></li>
         </ul>
-        <p style="margin-top: 20px; font-weight: bold;">Total: -15.5 MAD</p>
+        <p style="margin-top: 20px; font-weight: bold;">
+            Total: 
+            @php
+                $totalDebts = collect($debts)->sum(function($debt) use ($user) {
+                    return $debt->id_from == $user->id ? $debt->value : -$debt->value;
+                });
+                $sign = $totalDebts >= 0 ? '+' : '-';
+            @endphp
+            {{ $sign }}{{ abs($totalDebts) }} MAD
+        </p>
     </div>
 
     <div class="content">
@@ -177,10 +211,58 @@
             <div class="block">
                 <h3>Mes emprunts</h3>
                 <ul>
-                    <li>Raihana +100dh 21/04/2004</li>
-                    <li>Douae -16.5dh 14/04/2025</li>
+                    @php
+                        $groupedDebts = collect($debts)
+                            ->groupBy(function($debt) use ($user) {
+                                return $debt->id_from == $user->id ? $debt->id_to : $debt->id_from;
+                            });
+                    @endphp
+                    @foreach($groupedDebts as $otherUserId => $userDebts)
+                        @php
+                            $isFrom = $userDebts->first()->id_from == $user->id;
+                            $otherUserName = $isFrom ? $userDebts->first()->id_to_name : $userDebts->first()->id_from_name;
+                            $total = $userDebts->sum(function($debt) use ($user) {
+                                return $debt->id_from == $user->id ? $debt->value : -$debt->value;
+                            });
+                            $sign = $total >= 0 ? '+' : '-';
+                            $lastDate = $userDebts->sortByDesc('created_at')->first()->created_at->format('d/m/Y');
+                        @endphp
+                        <li>
+                            {{ $otherUserName }} {{ $sign }}{{ abs($total) }}dh {{ $lastDate }}
+                        </li>
+                    @endforeach
                 </ul>
-                <button>+ Nouvelle emprunt</button>
+                <button onclick="document.getElementById('nouvel-emprunt-form').style.display='block'">+ Nouvelle emprunt</button>
+                <div id="nouvel-emprunt-form" style="display:none; margin-top:20px; border:1px solid #ccc; border-radius:8px; padding:16px; background:#f9f9f9;">
+                    <form action="{{ route('private_debts.store') }}" method="POST">
+                        @csrf
+                        <div>
+                            <label for="name">Nom de l'emprunt :</label>
+                            <input type="text" name="name" id="name" required>
+                        </div>
+                        <div>
+                            <label for="value">Montant :</label>
+                            <input type="number" step="0.01" name="value" id="value" required>
+                        </div>
+                        <div>
+                            <label for="id_to">Nom de l'utilisateur (destinataire) :</label>
+                            <input type="text" name="id_to_name" id="id_to" required placeholder="Nom exact de l'utilisateur">
+                        </div>
+                        <div>
+                            <label for="description">Description :</label>
+                            <input type="text" name="description" id="description">
+                        </div>
+                        <div>
+                            <label for="status">Statut :</label>
+                            <select name="status" id="status" required>
+                                <option value="unpaid">Non payé</option>
+                                <option value="paid">Payé</option>
+                            </select>
+                        </div>
+                        <button type="submit" style="margin-top:10px;">Ajouter</button>
+                        <button type="button" onclick="document.getElementById('nouvel-emprunt-form').style.display='none'" style="margin-top:10px; margin-left:10px;">Annuler</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
