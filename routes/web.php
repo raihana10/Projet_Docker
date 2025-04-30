@@ -1,4 +1,6 @@
 <?php
+
+use App\Http\Controllers\GroupController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\UserController;
@@ -18,3 +20,9 @@ Route::get('/profile', function () {
 })->middleware('auth');
 Route::post('/profile/update', [App\Http\Controllers\UserController::class, 'updateProfile'])->middleware('auth');
 Route::get('/test2', [test2Controller::class, 'test2'])->middleware('auth');
+
+Route::get('/ajouter-groupe', [GroupController::class, 'create'])->name('create');
+Route::post('/ajouter-groupe', [GroupController::class, 'store'])->name('store');
+Route::get('/test2', function () {
+    return view('test2');
+})->name('test2');
