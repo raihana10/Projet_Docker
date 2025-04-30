@@ -64,9 +64,24 @@ jobs:
           echo "Fichier config créé:"
           cat /home/runner/jira/config.yml | grep -v 'apiToken:'
 
-      - name: Transition Jira Issue
+      - name: Get Transition ID
+        id: get_transition
         if: steps.extract_jira_key.outputs.jira_key != ''
+        run: |
+          RESPONSE=$(curl -s -u "${{ secrets.JIRA_USER }}:${{ secrets.JIRA_TOKEN }}" \
+            "${{ secrets.JIRA_URL }}/rest/api/2/issue/${{ steps.extract_jira_key.outputs.jira_key }}/transitions")
+          echo "API Response: $RESPONSE"
+          TERMINATED_ID=$(echo "$RESPONSE" | jq -r '.transitions[] | select(.name == "TERMINÉ(E)") | .id')
+          if [ -n "$TERMINATED_ID" ]; then
+            echo "transitionId=$TERMINATED_ID" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Transition 'TERMINÉ(E)' non trouvée"
+            exit 1
+          fi
+
+      - name: Transition Jira Issue
+        if: steps.extract_jira_key.outputs.jira_key != '' && steps.get_transition.outputs.transitionId != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract_jira_key.outputs.jira_key }}
-          transition: "TERMINÉ(E)"
+          transitionId: ${{ steps.get_transition.outputs.transitionId }}
