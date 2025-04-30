@@ -15,26 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Debug directory structure
-        run: |
-          echo "Current working directory: $(pwd)"
-          echo "Directory contents:"
-          ls -la
-          echo "Looking for .env.example in subdirectories:"
-          find . -name ".env.example" -type f
-      
       - name: Copy .env.example to .env
-        run: |
-          ENV_EXAMPLE=$(find . -name ".env.example" -type f | head -n 1)
-          if [ -n "$ENV_EXAMPLE" ]; then
-            echo "Found .env.example at: $ENV_EXAMPLE"
-            cp "$ENV_EXAMPLE" ./.env
-            echo ".env created successfully"
-            cat ./.env | head -5
-          else
-            echo "ERROR: Could not find .env.example file"
-            exit 1
-          fi
+        run: cp .env.example .env
         
       - name: Placeholder step
         run: echo "Build and test steps would go here"
