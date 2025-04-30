@@ -43,26 +43,26 @@ jobs:
             echo "jira_key=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Verify Jira Base URL
+      - name: Verify Jira Configuration
         run: |
-          echo "JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}"
-          # Vérifie que l'URL commence bien par https://
-          if [[ ! "${{ secrets.JIRA_BASE_URL }}" =~ ^https:// ]]; then
-            echo "::error::JIRA_BASE_URL doit commencer par https://"
+          echo "JIRA_URL: ${{ secrets.JIRA_URL }}"
+          if [[ ! "${{ secrets.JIRA_URL }}" =~ ^https:// ]]; then
+            echo "::error::JIRA_URL doit commencer par https://"
             exit 1
           fi
+          echo "Configuration valide"
 
       - name: Setup Jira Config
         if: steps.extract_jira_key.outputs.jira_key != ''
         run: |
           mkdir -p /home/runner/jira
           cat <<EOF > /home/runner/jira/config.yml
-          baseUrl: ${{ secrets.JIRA_BASE_URL }}
-          email: ${{ secrets.JIRA_USER_EMAIL }}
-          apiToken: ${{ secrets.JIRA_API_TOKEN }}
+          baseUrl: ${{ secrets.JIRA_URL }}
+          email: ${{ secrets.JIRA_USER }}
+          apiToken: ${{ secrets.JIRA_TOKEN }}
           EOF
-          echo "Config file content:"
-          cat /home/runner/jira/config.yml
+          echo "Fichier config créé:"
+          cat /home/runner/jira/config.yml | grep -v 'apiToken:'
 
       - name: Transition Jira Issue
         if: steps.extract_jira_key.outputs.jira_key != ''
