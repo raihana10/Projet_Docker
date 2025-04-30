@@ -22,15 +22,16 @@ jobs:
       - name: Create Jira config file
         run: |
           mkdir -p /home/runner/jira
+          # Important: S'assurer que baseUrl se termine SANS slash
+          BASEURL=$(echo "${{ secrets.JIRA_BASE_URL }}" | sed 's/\/$//')
           cat > /home/runner/jira/config.yml << EOF
-          baseUrl: ${{ secrets.JIRA_BASE_URL }}
+          baseUrl: ${BASEURL}
           email: ${{ secrets.JIRA_USER_EMAIL }}
           apiToken: ${{ secrets.JIRA_API_TOKEN }}
           EOF
-          # Verify the config file was created properly
+          # Vérifier le fichier créé
           echo "Config file created at: /home/runner/jira/config.yml"
           ls -la /home/runner/jira/
-          cat /home/runner/jira/config.yml
 
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != 'NOT_FOUND'
