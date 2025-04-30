@@ -1,16 +1,13 @@
 name: Jira Transition Workflow
-
 on:
   pull_request_target:
     types: [closed]
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   transition-issue:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -20,24 +17,22 @@ jobs:
       - name: Extract Jira Issue Key
         id: extract-key
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          KEY=$(echo "$TITLE"  | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
           if [ -z "$KEY" ]; then
-            KEY=$(echo "$BRANCH" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+            KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
           fi
-          if [ -n "$KEY" ]; then
-            echo "issue=$KEY" >> $GITHUB_OUTPUT
-          else
-            echo "issue=" >> $GITHUB_OUTPUT
-          fi
+          echo "issue=$KEY" >> $GITHUB_OUTPUT
+
+      - name: Login to Jira
+        uses: atlassian/gajira-login@v3
+        with:
+          baseUrl: ${{ secrets.JIRA_BASE_URL }}
+          email: ${{ secrets.JIRA_USER_EMAIL }}
+          apiToken: ${{ secrets.JIRA_API_TOKEN }}
 
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
-          baseUrl: ${{ secrets.JIRA_BASE_URL }}
-          email: ${{ secrets.JIRA_USER_EMAIL }}
-          apiToken: ${{ secrets.JIRA_API_TOKEN }}
           issue: ${{ steps.extract-key.outputs.issue }}
           transition: "TERMINÉ(E)"
