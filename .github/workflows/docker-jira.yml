@@ -8,6 +8,10 @@ jobs:
   transition-issue:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    env:
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -23,13 +27,21 @@ jobs:
           fi
           echo "issue=$KEY" >> $GITHUB_OUTPUT
 
+      - name: Setup Jira Config
+        run: |
+          mkdir -p /home/runner/jira
+          echo "baseUrl: ${{ secrets.JIRA_BASE_URL }}" > /home/runner/jira/config.yml
+          echo "email: ${{ secrets.JIRA_USER_EMAIL }}" >> /home/runner/jira/config.yml
+          echo "apiToken: ${{ secrets.JIRA_API_TOKEN }}" >> /home/runner/jira/config.yml
+
+      - name: Validate Transition Name
+        run: |
+          echo "Transition utilisée : 'TERMINÉ(E)'"
+          echo "Vérifiez que ce nom correspond exactement à celui dans Jira (casse et caractères spéciaux)"
+
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         with:
           issue: ${{ steps.extract-key.outputs.issue }}
-          transition: "Done"  # Remplacez par le nom exact de votre transition Jira
+          transition: "TERMINÉ(E)"  # Nom exact avec majuscules et caractères spéciaux
