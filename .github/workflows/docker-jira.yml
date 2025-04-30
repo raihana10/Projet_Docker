@@ -23,23 +23,64 @@ jobs:
         if: steps.extract-key.outputs.issue != 'NOT_FOUND'
         id: find-transition
         run: |
-          # Récupérer les transitions disponibles pour obtenir l'ID
-          TRANSITIONS_RESPONSE=$(curl -s \
+          echo "Issue key: ${{ steps.extract-key.outputs.issue }}"
+          echo "Jira URL: ${{ secrets.JIRA_BASE_URL }}"
+          
+          # Vérifier si l'URL se termine par un slash et corriger
+          BASE_URL=$(echo "${{ secrets.JIRA_BASE_URL }}" | sed 's/\/$//')
+          echo "URL formatée: $BASE_URL"
+          
+          # Récupérer les transitions avec verbose pour plus d'informations
+          echo "Récupération des transitions disponibles..."
+          HTTP_RESPONSE=$(curl -v \
             --request GET \
-            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/${{ steps.extract-key.outputs.issue }}/transitions" \
+            --url "${BASE_URL}/rest/api/2/issue/${{ steps.extract-key.outputs.issue }}/transitions" \
             --user "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
-            --header "Accept: application/json")
+            --header "Accept: application/json" 2>&1)
           
-          echo "Transitions disponibles:"
-          echo "$TRANSITIONS_RESPONSE" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g'
+          echo "Réponse complète de la requête curl:"
+          echo "$HTTP_RESPONSE"
           
-          # Trouver l'ID de la transition "TERMINÉ(E)"
-          TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"TERMINÉ(E)"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+          # Extraire la partie JSON de la réponse (ignorer les en-têtes et messages de curl)
+          TRANSITIONS_RESPONSE=$(echo "$HTTP_RESPONSE" | sed -n '/^{/,/^}/p')
           
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "Attention: Transition 'TERMINÉ(E)' non trouvée. Recherche de la transition 'Done'..."
-            TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"Done"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+          echo "Partie JSON extraite:"
+          echo "$TRANSITIONS_RESPONSE"
+          
+          # Utilisons jq si disponible pour un traitement JSON plus fiable
+          if command -v jq &> /dev/null; then
+            echo "Utilisation de jq pour traiter le JSON"
+            echo "$TRANSITIONS_RESPONSE" > transitions.json
+            
+            # Afficher toutes les transitions disponibles
+            echo "Transitions disponibles:"
+            jq -r '.transitions[] | .name' transitions.json || echo "Erreur lors de l'analyse JSON avec jq"
+            
+            # Rechercher l'ID pour TERMINÉ(E) ou Done
+            TRANSITION_ID=$(jq -r '.transitions[] | select(.name=="TERMINÉ(E)") | .id' transitions.json)
+            
+            if [ -z "$TRANSITION_ID" ] || [ "$TRANSITION_ID" = "null" ]; then
+              echo "Transition 'TERMINÉ(E)' non trouvée, recherche de 'Done'..."
+              TRANSITION_ID=$(jq -r '.transitions[] | select(.name=="Done") | .id' transitions.json)
+            fi
+          else
+            echo "jq non disponible, utilisation de grep/sed"
+            # Afficher les transitions disponibles
+            echo "Transitions disponibles (via grep):"
+            echo "$TRANSITIONS_RESPONSE" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g' || echo "Aucune transition trouvée via grep"
+            
+            # Rechercher l'ID pour TERMINÉ(E) ou Done
+            TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"TERMINÉ(E)"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+            
+            if [ -z "$TRANSITION_ID" ]; then
+              echo "Transition 'TERMINÉ(E)' non trouvée, recherche de 'Done'..."
+              TRANSITION_ID=$(echo "$TRANSITIONS_RESPONSE" | grep -o '"id":"[^"]*","name":"Done"' | sed 's/.*"id":"//g' | sed 's/","name.*//g')
+            fi
           fi
+          
+          # Afficher manuellement toutes les transitions pour débogage
+          echo "Contenu brut du JSON des transitions:"
+          echo "$TRANSITIONS_RESPONSE"
           
           if [ -z "$TRANSITION_ID" ]; then
             echo "❌ Échec: Aucune transition 'TERMINÉ(E)' ou 'Done' trouvée"
