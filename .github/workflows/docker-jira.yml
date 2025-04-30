@@ -1,36 +1,49 @@
+# .github/workflows/jira-transition.yml
 name: Jira Transition Workflow
 
 on:
   pull_request_target:
     types: [closed]
+    branches:
+      - main
 
 jobs:
   transition-issue:
-    runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    runs-on: ubuntu-latest
 
+    steps:
+      # 1. On checkout la branche cible pour un contexte sécurisé
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # 2. On extrait la clé Jira du titre ou de la branche
       - name: Extract Jira Issue Key
         id: extract-key
         run: |
-          echo "PR Title: ${{ github.event.pull_request.title }}"
-          JIRA_KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
-          
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          TITLE="${{ github.event.pull_request.title }}"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "PR Title: $TITLE"
+          echo "PR Branch: $BRANCH"
+
+          # recherche dans le titre
+          KEY=$(echo "$TITLE"  | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          # si vide, recherche dans la branche
+          if [ -z "$KEY" ]; then
+            KEY=$(echo "$BRANCH" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
           fi
-          
-          if [ -n "$JIRA_KEY" ]; then
-            echo "Found Jira issue: $JIRA_KEY"
-            echo "issue=$JIRA_KEY" >> $GITHUB_OUTPUT
+
+          if [ -n "$KEY" ]; then
+            echo "Found Jira issue: $KEY"
+            echo "issue=$KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira issue found"
+            echo "No Jira issue found in title or branch." >&2
             echo "issue=" >> $GITHUB_OUTPUT
           fi
 
+      # 3. On se connecte à Jira (ne s'exécute que si on a une clé)
       - name: Login to Jira
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-login@v3
@@ -39,9 +52,11 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-      - name: Transition Issue
+      # 4. On applique la transition
+      - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-key.outputs.issue }}
-          transition: "TERMINÉ(E)"
+          # soit le nom de la transition, soit son ID
+          transition: "TERMINÉ(E)"  
