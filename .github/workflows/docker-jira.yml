@@ -13,50 +13,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. On checkout la branche cible pour un contexte sécurisé
       - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      # 2. On extrait la clé Jira du titre ou de la branche
       - name: Extract Jira Issue Key
         id: extract-key
         run: |
           TITLE="${{ github.event.pull_request.title }}"
           BRANCH="${{ github.event.pull_request.head.ref }}"
-          echo "PR Title: $TITLE"
-          echo "PR Branch: $BRANCH"
-
-          # recherche dans le titre
           KEY=$(echo "$TITLE"  | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
-          # si vide, recherche dans la branche
           if [ -z "$KEY" ]; then
             KEY=$(echo "$BRANCH" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
           fi
-
           if [ -n "$KEY" ]; then
-            echo "Found Jira issue: $KEY"
             echo "issue=$KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira issue found in title or branch." >&2
             echo "issue=" >> $GITHUB_OUTPUT
           fi
 
-      # 3. On se connecte à Jira (ne s'exécute que si on a une clé)
       - name: Login to Jira
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-login@v3
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        with:
+          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
+          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
+          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
 
-      # 4. On applique la transition
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-key.outputs.issue }}
           # soit le nom de la transition, soit son ID
-          transition: "TERMINÉ(E)"  
+          transition: "TERMINÉ(E)"
