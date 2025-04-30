@@ -21,15 +21,16 @@ jobs:
 
       - name: Create Jira config file
         run: |
-          mkdir -p ~/.jira
-          cat > ~/.jira/config.yml << EOF
+          mkdir -p /home/runner/jira
+          cat > /home/runner/jira/config.yml << EOF
           baseUrl: ${{ secrets.JIRA_BASE_URL }}
           email: ${{ secrets.JIRA_USER_EMAIL }}
           apiToken: ${{ secrets.JIRA_API_TOKEN }}
           EOF
           # Verify the config file was created properly
-          echo "Config file created at: ~/.jira/config.yml"
-          ls -la ~/.jira/
+          echo "Config file created at: /home/runner/jira/config.yml"
+          ls -la /home/runner/jira/
+          cat /home/runner/jira/config.yml
 
       - name: Transition Jira Issue
         if: steps.extract-key.outputs.issue != 'NOT_FOUND'
