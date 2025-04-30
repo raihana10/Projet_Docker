@@ -1,4 +1,3 @@
-# .github/workflows/jira-transition.yml
 name: Jira Transition Workflow
 
 on:
@@ -37,8 +36,8 @@ jobs:
         if: steps.extract-key.outputs.issue != ''
         uses: atlassian/gajira-transition@v3
         with:
-          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
-          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
-          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
+          baseUrl: ${{ secrets.JIRA_BASE_URL }}
+          email: ${{ secrets.JIRA_USER_EMAIL }}
+          apiToken: ${{ secrets.JIRA_API_TOKEN }}
           issue: ${{ steps.extract-key.outputs.issue }}
           transition: "TERMINÉ(E)"
