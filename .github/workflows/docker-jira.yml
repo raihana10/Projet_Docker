@@ -8,40 +8,29 @@ jobs:
   transition-issue:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    env:
-      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
     steps:
-      - name: Checkout main
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Extract Jira Issue Key
         id: extract-key
         run: |
           KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
-          if [ -z "$KEY" ]; then
-            KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
-          fi
-          echo "issue=$KEY" >> $GITHUB_OUTPUT
+          [ -z "$KEY" ] && KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+          echo "issue=${KEY:-NOT_FOUND}" >> $GITHUB_OUTPUT
 
-      - name: Setup Jira Config
+      - name: Verify Jira Configuration
         run: |
-          mkdir -p /home/runner/jira
-          echo "baseUrl: ${{ secrets.JIRA_BASE_URL }}" > /home/runner/jira/config.yml
-          echo "email: ${{ secrets.JIRA_USER_EMAIL }}" >> /home/runner/jira/config.yml
-          echo "apiToken: ${{ secrets.JIRA_API_TOKEN }}" >> /home/runner/jira/config.yml
+          echo "JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}"
+          echo "Issue Key: ${{ steps.extract-key.outputs.issue }}"
 
-      - name: Validate Transition Name
-        run: |
-          echo "Transition utilisée : 'TERMINÉ(E)'"
-          echo "Vérifiez que ce nom correspond exactement à celui dans Jira (casse et caractères spéciaux)"
-
-      - name: Transition Jira Issue
-        if: steps.extract-key.outputs.issue != ''
+      - name: Transition Issue
+        if: steps.extract-key.outputs.issue != 'NOT_FOUND'
         uses: atlassian/gajira-transition@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         with:
           issue: ${{ steps.extract-key.outputs.issue }}
-          transition: "TERMINÉ(E)"  # Nom exact avec majuscules et caractères spéciaux
+          transition: "TERMINÉ(E)"
