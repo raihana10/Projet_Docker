@@ -15,4 +15,11 @@ class Group extends Model
         'description',
         'join_code',
     ];
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'groupUsers');
+    }
+
+
 }
