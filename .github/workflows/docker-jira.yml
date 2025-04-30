@@ -1,7 +1,8 @@
 name: Laravel Docker CI
+
 on:
   push:
-    branches: ['*']
+    branches: [main]
   pull_request:
     branches: [main]
   pull_request_target:
@@ -13,232 +14,58 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, dom, fileinfo, mysql
-          coverage: xdebug
       
-      - name: Copy .env
-        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+      - name: Copy .env.example to .env
+        run: cp .env.example .env
         
-      - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-        
-      - name: Generate key
-        run: php artisan key:generate
-        
-      - name: Directory Permissions
-        run: chmod -R 777 storage bootstrap/cache
+      - name: Placeholder step
+        run: echo "Build and test steps would go here"
 
   update-jira-status:
     needs: build-and-test
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: |
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
-      - name: Debug Event
-        run: |
-          echo "Event details:"
-          echo "Action: ${{ github.event.action }}"
-          echo "Merged: ${{ github.event.pull_request.merged }}"
-          echo "Base Ref: ${{ github.event.pull_request.base.ref }}"
-
       - name: Extract Jira Issue Key
         id: extract_jira_key
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
           PR_BODY="${{ github.event.pull_request.body }}"
+          echo "Checking PR title: $PR_TITLE"
+          echo "Checking PR body: $PR_BODY"
           
-          # Look in title first
+          # Look for Jira ticket pattern in PR title (e.g., PROJECT-123)
           JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
           
-          # If not found in title, check branch name
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
-          
-          # If still not found, check PR body
+          # If not found in title, look in PR description
           if [ -z "$JIRA_KEY" ]; then
             JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
           fi
           
           if [ -n "$JIRA_KEY" ]; then
-            echo "Found Jira key: $JIRA_KEY"
+            echo "Found Jira ticket: $JIRA_KEY"
             echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
           else
-            echo "No Jira key found in PR title, branch name, or body"
+            echo "No Jira ticket found"
             echo "jira_key=" >> $GITHUB_OUTPUT
+            exit 0 # Exit gracefully if no Jira key found
           fi
-
-      - name: Verify Jira Configuration
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        run: |
-          # Trim trailing slashes from JIRA_URL if any exist
-          JIRA_URL="${{ secrets.JIRA_URL }}"
-          JIRA_URL="${JIRA_URL%/}"
-          
-          echo "Checking JIRA_URL format (masked)"
-          if [[ ! "$JIRA_URL" =~ ^https:// ]]; then
-            echo "::error::JIRA_URL doit commencer par https://"
-            exit 1
-          fi
-          
-          if [ -z "${{ secrets.JIRA_USER }}" ]; then
-            echo "::error::JIRA_USER n'est pas défini"
-            exit 1
-          fi
-          
-          if [ -z "${{ secrets.JIRA_TOKEN }}" ]; then
-            echo "::error::JIRA_TOKEN n'est pas défini"
-            exit 1
-          fi
-          
-          echo "Configuration Jira valide"
-
-      - name: Setup Jira Config
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        run: |
-          mkdir -p /home/runner/jira
-          # Ensure JIRA_URL has no trailing slash
-          JIRA_URL="${{ secrets.JIRA_URL }}"
-          JIRA_URL="${JIRA_URL%/}"
-          
-          cat <<EOF > /home/runner/jira/config.yml
-          baseUrl: $JIRA_URL
-          email: ${{ secrets.JIRA_USER }}
-          apiToken: ${{ secrets.JIRA_TOKEN }}
-          EOF
-          echo "Fichier config créé:"
-          cat /home/runner/jira/config.yml | grep -v 'apiToken:'
-
-      - name: Get Transition ID
-        id: get_transition
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        run: |
-          # Ensure JIRA_URL has no trailing slash
-          JIRA_URL="${{ secrets.JIRA_URL }}"
-          JIRA_URL="${JIRA_URL%/}"
-          JIRA_ISSUE_KEY="${{ steps.extract_jira_key.outputs.jira_key }}"
-          API_URL="$JIRA_URL/rest/api/2/issue/$JIRA_ISSUE_KEY/transitions"
-          
-          echo "Appel API à: $API_URL (informations d'identification masquées)"
-          
-          # Approche simplifiée avec une sortie d'erreur complète
-          echo "Récupération des transitions disponibles..."
-          HTTP_OUTPUT="/tmp/curl_output.txt"
-          HTTP_ERROR="/tmp/curl_error.txt"
-          
-          # -f fait échouer curl en cas de code HTTP d'erreur
-          if ! curl -f -s \
-            -o "$HTTP_OUTPUT" \
-            -u "${{ secrets.JIRA_USER }}:${{ secrets.JIRA_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            "$API_URL" 2>"$HTTP_ERROR"; then
-            
-            echo "::error::Échec de l'appel API Jira:"
-            echo "URL: $API_URL"
-            echo "Erreur curl:"
-            cat "$HTTP_ERROR"
-            echo "Réponse du serveur (si disponible):"
-            cat "$HTTP_OUTPUT"
-            exit 1
-          fi
-          
-          # Vérifier si la réponse est un JSON valide et contient des transitions
-          if ! jq -e '.transitions' "$HTTP_OUTPUT" >/dev/null 2>&1; then
-            echo "::error::Réponse API invalide ou pas de transitions disponibles"
-            echo "Réponse brute:"
-            cat "$HTTP_OUTPUT"
-            exit 1
-          fi
-          
-          # Afficher toutes les transitions disponibles pour le débogage
-          echo "Transitions disponibles:"
-          jq -r '.transitions[] | .name + " (ID: " + .id + ")"' "$HTTP_OUTPUT"
-          
-          # Essayer plusieurs noms de transition possibles
-          for TRANSITION_NAME in "TERMINÉ(E)" "Terminé(e)" "TERMINE" "Terminé" "Done" "DONE" "Fait"; do
-            TRANSITION_ID=$(jq -r --arg name "$TRANSITION_NAME" '.transitions[] | select(.name == $name) | .id' "$HTTP_OUTPUT")
-            if [ -n "$TRANSITION_ID" ]; then
-              echo "ID de transition trouvé pour '$TRANSITION_NAME': $TRANSITION_ID"
-              echo "transitionId=$TRANSITION_ID" >> $GITHUB_OUTPUT
-              break
-            fi
-          done
-          
-          # Si toujours pas trouvé, essayer avec une approche plus générique
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "Essai avec une recherche partielle..."
-            TRANSITION_ID=$(jq -r '.transitions[] | select(.name | ascii_downcase | contains("termin") or contains("done") or contains("fait")) | .id' "$HTTP_OUTPUT" | head -1)
-            
-            if [ -n "$TRANSITION_ID" ]; then
-              echo "ID de transition trouvé par recherche partielle: $TRANSITION_ID"
-              echo "transitionId=$TRANSITION_ID" >> $GITHUB_OUTPUT
-            else
-              echo "::error::Aucune transition de type 'terminé' trouvée."
-              echo "Veuillez vérifier les noms de transition disponibles ci-dessus."
-              
-              # En dernier recours, prendre le premier ID de transition (si disponible)
-              FIRST_TRANSITION=$(jq -r '.transitions[0].id' "$HTTP_OUTPUT")
-              if [ -n "$FIRST_TRANSITION" ] && [ "$FIRST_TRANSITION" != "null" ]; then
-                echo "Utilisation du premier ID de transition disponible: $FIRST_TRANSITION"
-                echo "transitionId=$FIRST_TRANSITION" >> $GITHUB_OUTPUT
-              else
-                exit 1
-              fi
-            fi
-          fi
-
-      - name: Transition Jira Issue
-        id: transition_issue
-        if: steps.extract_jira_key.outputs.jira_key != '' && steps.get_transition.outputs.transitionId != ''
-        run: |
-          # Approche manuelle au lieu de l'action gajira-transition
-          JIRA_URL="${{ secrets.JIRA_URL }}"
-          JIRA_URL="${JIRA_URL%/}"
-          JIRA_ISSUE_KEY="${{ steps.extract_jira_key.outputs.jira_key }}"
-          TRANSITION_ID="${{ steps.get_transition.outputs.transitionId }}"
-          API_URL="$JIRA_URL/rest/api/2/issue/$JIRA_ISSUE_KEY/transitions"
-          
-          echo "Transitionnement de l'issue $JIRA_ISSUE_KEY avec ID de transition $TRANSITION_ID"
-          
-          # Créer le payload JSON
-          PAYLOAD=$(cat <<EOF
-          {
-            "transition": {
-              "id": "$TRANSITION_ID"
-            }
-          }
-          EOF
-          )
-          
-          # Exécuter la requête POST
-          HTTP_OUTPUT="/tmp/transition_output.txt"
-          HTTP_ERROR="/tmp/transition_error.txt"
-          
-          if ! curl -f -s \
-            -X POST \
-            -o "$HTTP_OUTPUT" \
-            -u "${{ secrets.JIRA_USER }}:${{ secrets.JIRA_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "$API_URL" 2>"$HTTP_ERROR"; then
-            
-            echo "::error::Échec du transitionnement de l'issue Jira:"
-            echo "URL: $API_URL"
-            echo "Erreur curl:"
-            cat "$HTTP_ERROR"
-            echo "Réponse du serveur (si disponible):"
-            cat "$HTTP_OUTPUT"
-            exit 1
-          fi
-          
-          echo "✅ Issue $JIRA_ISSUE_KEY transitionné avec succès"
       
-      - name: Report Success
-        if: success() && steps.extract_jira_key.outputs.jira_key != ''
+      - name: Debug - Event Info
         run: |
-          echo "✅ Issue Jira ${{ steps.extract_jira_key.outputs.jira_key }} transitionné avec succès"
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR merged: ${{ github.event.pull_request.merged }}"
+          echo "Jira key: ${{ steps.extract_jira_key.outputs.jira_key }}"
+      
+      - name: Transition Jira Issue
+        if: steps.extract_jira_key.outputs.jira_key != ''
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.extract_jira_key.outputs.jira_key }}
+          transition: "Done"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
