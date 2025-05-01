@@ -46,9 +46,11 @@ class User extends Authenticatable
         ];
     }
 
-    public function groups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(Group::class, 'group_user');
-    }
+   // Dans User.php
+public function groups()
+{
+    return $this->belongsToMany(Group::class, 'group_user');
+}
+
 
 }

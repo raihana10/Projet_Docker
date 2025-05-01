@@ -35,6 +35,33 @@
             color: #333;
             font-size: 20px;
         }
+        .block button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #0056b3;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 10px; /* Espacement uniforme */
+    text-align: center;
+}
+
+.block button:hover {
+    background-color: #004099;
+}
+
+/* Style spécifique pour le bouton Emprunts si besoin */
+.button-emprunts {
+    background-color: #0056b3; /* Même couleur que créer */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
         .sidebar {
             width: 250px;
             background-color: #fff;
@@ -125,6 +152,11 @@
             <form action="/logout" method="POST" style="margin:0;">
                 @csrf
                 <button type="submit" style="display:block; width:100%; padding:8px 20px; background:none; border:none; color:#e60000; text-align:left; cursor:pointer;">Logout</button>
+                <button type="button" onclick="window.location.href='/Page3';">
+    Les Emprunts
+</button>
+
+
             </form>
         </div>
     </div>
@@ -163,25 +195,32 @@
     </div>
 
     <div class="content">
-        <div class="blocks">
-            <div class="block">
-                <h3>Mes groupes</h3>
-                <ul>
-                    @foreach($groups as $group)
-                        <li>{{ $group->name }}</li>
-                    @endforeach
-                </ul>
-                <button onclick="location.href='/ajouter-groupe'">+ Créer nouveau groupe</button>
+    <div class="blocks">
+        <div class="block">
+            <h3>Mes groupes</h3>
+            <ul>
+                @foreach($groups as $group)
+                    <li>{{ $group->name }}</li>
+                @endforeach
+            </ul>
+            <!-- Boutons alignés et stylisés de la même manière -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <button onclick="location.href='/ajouter-groupe'" style="width: 100%;">
+                    + Créer nouveau groupe
+                </button>
+                <button onclick="location.href='/Page3'" style="width: 100%;">
+                    📋 Voir les Emprunts
+                </button>
             </div>
+        </div>
 
-            <div class="block">
-                <h3>Mes emprunts</h3>
-                <ul>
-                    <li>Raihana +100dh 21/04/2004</li>
-                    <li>Douae -16.5dh 14/04/2025</li>
-                </ul>
-                <button>+ Nouvelle emprunt</button>
-            </div>
+        <div class="block">
+            <h3>Mes emprunts</h3>
+            <ul>
+                <li>Raihana +100dh 21/04/2004</li>
+                <li>Douae -16.5dh 14/04/2025</li>
+            </ul>
+            <button>+ Nouvelle emprunt</button>
         </div>
     </div>
 </div>

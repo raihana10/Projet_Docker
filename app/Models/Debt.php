@@ -1,19 +1,20 @@
 <?php
 
 namespace App\Models;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Debt extends Model
 {
-    use HasFactory;
+    // Si tu n'as pas besoin de timestamps, tu peux désactiver :
+    // public $timestamps = false;
 
+    // Remplissage en masse
     protected $fillable = [
-        'name',
-        'value',
+        'group_id',
         'id_from',
         'id_to',
-        'group_id',
+        'value',
         'description',
         'status',
     ];
