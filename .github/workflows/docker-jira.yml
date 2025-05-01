@@ -1,37 +1,37 @@
-name: Laravel Docker CI
+name: Laravel Docker Workflow
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+on: [push, pull_request]
 
 jobs:
-  laravel-ci:
+  laravel-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - name:  Cloner le dépôt
-        uses: actions/checkout@v3
+    - name: Cloner le dépôt
+      uses: actions/checkout@v3
 
-      - name:  Copier .env.example → .env
-        run: cp .env.example .env
+    - name: Copier .env.example → .env
+      run: cp .env.example .env
 
-      - name:  Lancer les conteneurs Docker
-        run: docker-compose up -d --build
+    - name: Installer Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
 
-      - name:  Attendre que MySQL soit prêt
-        run: |
-          echo "Attente de MySQL "
-          sleep 15
+    - name: Lancer les conteneurs Docker
+      run: docker-compose up -d
 
-      - name:  Exécuter les commandes Laravel dans le conteneur
-        run: |
-          docker exec laravel_app php artisan config:clear
-          docker exec laravel_app php artisan key:generate
-          docker exec laravel_app php artisan migrate --force
-          docker exec laravel_app php artisan test
+    - name: Attendre que MySQL soit prêt
+      run: |
+        echo "Attente de la disponibilité de MySQL..."
+        docker-compose exec -T laravel_app bash -c 'until mysqladmin ping -h"$DB_HOST" --silent; do sleep 2; done'
 
-      - name:  Arrêter les conteneurs
-        if: always()
-        run: docker-compose down
+    - name: Exécuter les commandes Laravel dans le conteneur
+      run: |
+        docker-compose exec -T laravel_app bash -c "composer install"
+        docker-compose exec -T laravel_app bash -c "php artisan key:generate"
+        docker-compose exec -T laravel_app bash -c "php artisan migrate"
+
+    - name: Arrêter les conteneurs
+      run: docker-compose down
