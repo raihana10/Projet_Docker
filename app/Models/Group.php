@@ -16,10 +16,12 @@ class Group extends Model
         'join_code',
     ];
 
-    public function users()
-    {
-        return $this->belongsToMany(User::class, 'groupUsers');
-    }
+   // Dans Group.php
+public function users()
+{
+    return $this->belongsToMany(User::class, 'group_user');
+}
+
 
 
 }
