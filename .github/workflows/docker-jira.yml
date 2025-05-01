@@ -5,67 +5,33 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  pull_request_target:
-    types: [closed]
 
 jobs:
-  build-and-test:
+  laravel-ci:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Copy .env.example to .env
-        run: cp .env.example .env
-        
-      - name: Placeholder step
-        run: echo "Build and test steps would go here"
 
-  update-jira-status:
-    needs: build-and-test
-    if: |
-      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) ||
-      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
-    runs-on: ubuntu-latest
     steps:
-      - name: Extract Jira Issue Key
-        id: extract_jira_key
+      - name:  Cloner le dépôt
+        uses: actions/checkout@v3
+
+      - name:  Copier .env.example → .env
+        run: cp .env.example .env
+
+      - name:  Lancer les conteneurs Docker
+        run: docker-compose up -d --build
+
+      - name:  Attendre que MySQL soit prêt
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          echo "Checking PR title: $PR_TITLE"
-          echo "Checking PR body: $PR_BODY"
-          
-          # Look for Jira ticket pattern in PR title (e.g., PROJECT-123)
-          JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          
-          # If not found in title, look in PR description
-          if [ -z "$JIRA_KEY" ]; then
-            JIRA_KEY=$(echo "$PR_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-          fi
-          
-          if [ -n "$JIRA_KEY" ]; then
-            echo "Found Jira ticket: $JIRA_KEY"
-            echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
-          else
-            echo "No Jira ticket found"
-            echo "jira_key=" >> $GITHUB_OUTPUT
-            exit 0 # Exit gracefully if no Jira key found
-          fi
-      
-      - name: Debug - Event Info
+          echo "Attente de MySQL (15s)..."
+          sleep 15
+
+      - name: Exécuter les commandes Laravel dans le conteneur
         run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "PR merged: ${{ github.event.pull_request.merged }}"
-          echo "Jira key: ${{ steps.extract_jira_key.outputs.jira_key }}"
-      
-      - name: Transition Jira Issue
-        if: steps.extract_jira_key.outputs.jira_key != ''
-        uses: atlassian/gajira-transition@v3
-        with:
-          issue: ${{ steps.extract_jira_key.outputs.jira_key }}
-          transition: "Done"
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          docker exec laravel_app php artisan config:clear
+          docker exec laravel_app php artisan key:generate
+          docker exec laravel_app php artisan migrate --force
+          docker exec laravel_app php artisan test
+
+      - name: Arrêter les conteneurs
+        if: always()
+        run: docker-compose down
