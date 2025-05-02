@@ -15,7 +15,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: laravel_db
+          MYSQL_DATABASE: laravel_test
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping -ppassword" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -39,7 +39,7 @@ jobs:
         cp .env.example .env
         php artisan key:generate
         sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
-        sed -i 's/DB_DATABASE=.*/DB_DATABASE=laravel_db/' .env
+        sed -i 's/DB_DATABASE=.*/DB_DATABASE=laravel_test/' .env
         sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
         sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=password/' .env
     - name: Run migrations and tests
