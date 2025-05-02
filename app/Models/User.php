@@ -46,7 +46,7 @@ class User extends Authenticatable
         ];
     }
 
-    public function groups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function groups()
     {
         return $this->belongsToMany(Group::class, 'group_user')->withTimestamps();
     }

@@ -37,7 +37,7 @@ class GroupController extends Controller
         ]);
 
         // Création du groupe avec l'utilisateur connecté comme hôte
-        $group = Group::create([
+        $groups = Group::create([
             'name' => $request->name,
             'description' => $request->description,
             'join_code' => $request->join_code,
@@ -45,7 +45,7 @@ class GroupController extends Controller
         ]);
 
         // Ajouter automatiquement le créateur dans le groupe
-        $group->users()->attach(Auth::id());
+        $groups->users()->attach(Auth::id());
 
         return redirect()->route('test2')->with('success', 'Groupe créé avec succès.');
     }
