@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Group;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class GroupController extends Controller
 {
@@ -20,15 +21,33 @@ class GroupController extends Controller
      */
     public function create()
     {
-        //
+        return view('create');
     }
+
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
-        //
+        $request->validate([
+            'name' => 'required|string|max:20',
+            'description' => 'nullable|string',
+            'join_code' => 'required|string|unique:groups,join_code',
+        ]);
+
+        // Création du groupe avec l'utilisateur connecté comme hôte
+        $groups = Group::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'join_code' => $request->join_code,
+            'host_id' => Auth::id(),
+        ]);
+
+        // Ajouter automatiquement le créateur dans le groupe
+        $groups->users()->attach(Auth::id());
+
+        return redirect()->route('test2')->with('success', 'Groupe créé avec succès.');
     }
 
     /**
