@@ -261,7 +261,76 @@
                         <li>{{ $group->name }}</li>
                     @endforeach
                 </ul>
-                <button onclick="location.href='/ajouter-groupe'">+ Créer nouveau groupe</button>
+                <div style="display: flex; gap: 20px;">
+                    <!-- Bouton Créer un groupe -->
+                    <button onclick="document.getElementById('nouveau-groupe-form').classList.add('show-form')">+ Créer groupe</button>
+
+                    <!-- Bouton Rejoindre un groupe -->
+                    <button onclick="document.getElementById('rejoindre-groupe-form').classList.add('show-form')">→ Rejoindre groupe</button>
+                </div>
+                <div id="nouveau-groupe-form" class="nouvel-emprunt-form">
+                    <form action="{{ route('groups.store') }}" method="POST" class="form-animated">
+                        @csrf
+                        <div class="close-btn" onclick="closeGroupeForm()" title="Fermer"><i class="ri-close-line"></i></div>
+                        <h4 style="margin-bottom:18px;color:#0056b3;">Créer un nouveau groupe</h4>
+
+                        <div class="input-group">
+                            <label for="group-name">Nom du groupe :</label>
+                            <input type="text" name="name" id="group-name" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="group-description">Description :</label>
+                            <input type="text" name="description" id="group-description">
+                        </div>
+                        <div class="input-group">
+                            <label for="join-code">Code de groupe :</label>
+                            <input type="text" name="join_code" id="join-code" required>
+                        </div>
+
+                        <button type="submit" class="btn-animated">Créer</button>
+                        <button type="button" onclick="closeGroupeForm()" class="btn-cancel">Annuler</button>
+                    </form>
+                </div>
+
+                <div id="rejoindre-groupe-form" class="nouvel-emprunt-form">
+                    <form method="POST" action="{{ route('groups.join') }}" class="form-animated">
+                        @csrf
+                        <h4>Rejoindre un groupe</h4>
+                        <div class="input-group">
+                            <label for="join_code">Code du groupe :</label>
+                            <input type="text" name="join_code" required>
+                        </div>
+                        <button type="submit">Rejoindre</button>
+                        <button type="button" onclick="closeJoinForm()">Annuler</button>
+                    </form>
+                </div>
+
+                <script>
+                    function closeJoinForm() {
+                        document.getElementById('rejoindre-groupe-form').classList.remove('show-form');
+                    }
+                </script>
+
+                <script>
+                function closeGroupeForm() {
+                    document.getElementById('nouveau-groupe-form').classList.remove('show-form');
+                }
+                </script>
+                            <style>
+                            .nouveau-groupe-form {
+                                display: none;
+                                position: fixed;
+                                left: 0; top: 0; right: 0; bottom: 0;
+                                background: rgba(0,0,0,0.18);
+                                z-index: 3000;
+                                align-items: center;
+                                justify-content: center;
+                                animation: fadeInBg 0.3s;
+                            }
+                            .nouveau-groupe-form.show-form {
+                                display: flex;
+                            }
+                            </style>
             </div>
 
             <div class="block">
