@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Services\NotificationService;
+use App\Models\Friend;
 
 class FriendController extends Controller
 {
@@ -25,7 +27,11 @@ class FriendController extends Controller
             return back()->withErrors(['friend_name' => "Cet utilisateur est déjà votre ami."]);
         }
 
+        // Ajoute l'ami
         $user->friends()->attach($friend->id);
+
+        // Envoie une notification
+        $friend->notify(new \App\Notifications\FriendRequestNotification($user));
 
         return back()->with('success', 'Ami ajouté avec succès !');
     }

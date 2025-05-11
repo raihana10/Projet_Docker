@@ -50,11 +50,30 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Group::class, 'group_user');
     }
-
-  
-
+        
     public function friends()
     {
         return $this->belongsToMany(User::class, 'friends', 'user_id', 'friend_id');
+    }
+    
+    /**
+     * Get all of the notifications for the user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+    
+    /**
+     * Get all unread notifications for the user.
+     */
+    public function unreadNotifications()
+    {
+        return $this->notifications()->where('is_read', false);
+    }
+
+    protected function schedule(\Illuminate\Console\Scheduling\Schedule $schedule)
+    {
+        $schedule->command('debt:notify')->daily();
     }
 }

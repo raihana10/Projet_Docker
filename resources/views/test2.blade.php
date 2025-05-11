@@ -203,6 +203,14 @@
                 document.getElementById('friends-block').classList.remove('active');
             }
         </script>
+        <a href="{{ route('notifications.index') }}" style="position:relative;">
+            <i class="ri-notification-line"></i>
+            @if(auth()->check() && auth()->user()->unreadNotifications->count() > 0)
+                <span style="position:absolute; top:-5px; right:-10px; background:#f5222d; color:white; font-size:12px; padding:2px 6px; border-radius:50%;">
+                    {{ auth()->user()->unreadNotifications->count() }}
+                </span>
+            @endif
+        </a>
         <a href="#" id="settings-icon"><i class="ri-settings-3-line"></i></a>
         <div id="settings-menu" style="display:none; position:absolute; right:30px; top:60px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); padding:10px 0; min-width:140px; z-index:1000;">
             <a href="/profile" style="display:block; padding:8px 20px; color:#333; text-decoration:none;">Voir le profil</a>
@@ -290,37 +298,74 @@
                 </ul>
                 <button onclick="document.getElementById('nouvel-emprunt-form').classList.add('show-form')">+ Nouvelle emprunt</button>
                 <div id="nouvel-emprunt-form" class="nouvel-emprunt-form">
-                    <form action="{{ route('private_debts.store') }}" method="POST" class="form-animated">
-                        @csrf
-                        <div class="close-btn" onclick="closeEmpruntForm()" title="Fermer"><i class="ri-close-line"></i></div>
-                        <h4 style="margin-bottom:18px;color:#0056b3;">Ajouter un nouvel emprunt</h4>
-                        <div class="input-group">
-                            <label for="name">Nom de l'emprunt :</label>
-                            <input type="text" name="name" id="name" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="value">Montant :</label>
-                            <input type="number" step="0.01" name="value" id="value" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="id_to">Nom de l'utilisateur (destinataire) :</label>
-                            <input type="text" name="id_to_name" id="id_to" required placeholder="Nom exact de l'utilisateur">
-                        </div>
-                        <div class="input-group">
-                            <label for="description">Description :</label>
-                            <input type="text" name="description" id="description">
-                        </div>
-                        <div class="input-group">
-                            <label for="status">Statut :</label>
-                            <select name="status" id="status" required>
-                                <option value="unpaid">Non payé</option>
-                                <option value="paid">Payé</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-animated">Ajouter</button>
-                        <button type="button" onclick="closeEmpruntForm()" class="btn-cancel">Annuler</button>
-                    </form>
-                </div>
+    <form action="{{ route('private_debts.store') }}" method="POST" class="form-animated">
+        @csrf
+        <div class="close-btn" onclick="closeEmpruntForm()" title="Fermer"><i class="ri-close-line"></i></div>
+        <h4 style="margin-bottom:18px;color:#0056b3;">Ajouter un nouvel emprunt</h4>
+        <div class="input-group">
+            <label for="name">Nom de l'emprunt :</label>
+            <input type="text" name="name" id="name" required>
+        </div>
+        <div class="input-group">
+            <label for="value">Montant :</label>
+            <input type="number" step="0.01" name="value" id="value" required>
+        </div>
+        <div class="input-group">
+            <label for="id_to">Nom de l'utilisateur (destinataire) :</label>
+            <input type="text" name="id_to_name" id="id_to" required placeholder="Nom exact de l'utilisateur">
+        </div>
+        <!-- Champ Date de retour prévue ajouté ici -->
+        <div class="input-group">
+            <label for="due_date">Date de retour prévue :</label>
+            <input type="date" name="due_date" id="due_date" required min="{{ date('Y-m-d') }}">
+            <small class="date-help">Sélectionnez la date à laquelle l'argent doit être remboursé</small>
+        </div>
+        <div class="input-group">
+            <label for="description">Description :</label>
+            <input type="text" name="description" id="description">
+        </div>
+        <div class="input-group">
+            <label for="status">Statut :</label>
+            <select name="status" id="status" required>
+                <option value="unpaid">Non payé</option>
+                <option value="paid">Payé</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-animated">Ajouter</button>
+        <button type="button" onclick="closeEmpruntForm()" class="btn-cancel">Annuler</button>
+    </form>
+</div>
+
+<style>
+.date-help {
+    color: #666;
+    font-size: 0.8em;
+    margin-top: 4px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dueDateInput = document.getElementById('due_date');
+    if (dueDateInput) {
+        dueDateInput.addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const diffTime = selectedDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const helpText = this.nextElementSibling;
+            if (diffDays > 0) {
+                helpText.textContent = L'argent doit être remboursé dans ${diffDays} jour(s);
+            } else if (diffDays === 0) {
+                helpText.textContent = "L'argent doit être remboursé aujourd'hui";
+            } else {
+                helpText.textContent = 'Veuillez sélectionner une date future';
+            }
+        });
+    }
+});
+</script>
                 <style>
                 .nouvel-emprunt-form {
                     display: none;
