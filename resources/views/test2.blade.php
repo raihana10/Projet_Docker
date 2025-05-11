@@ -292,16 +292,20 @@
                     </form>
                 </div>
 
+                <!-- Formulaire REJOINDRE GROUPE (modifié) -->
                 <div id="rejoindre-groupe-form" class="nouvel-emprunt-form">
                     <form method="POST" action="{{ route('groups.join') }}" class="form-animated">
                         @csrf
-                        <h4>Rejoindre un groupe</h4>
+                        <div class="close-btn" onclick="closeJoinForm()" title="Fermer"><i class="ri-close-line"></i></div>
+                        <h4 style="margin-bottom:18px;color:#0056b3;">Rejoindre un groupe</h4>
+
                         <div class="input-group">
                             <label for="join_code">Code du groupe :</label>
-                            <input type="text" name="join_code" required>
+                            <input type="text" name="join_code" id="join_code" required>
                         </div>
-                        <button type="submit">Rejoindre</button>
-                        <button type="button" onclick="closeJoinForm()">Annuler</button>
+
+                        <button type="submit" class="btn-animated">Rejoindre</button>
+                        <button type="button" onclick="closeJoinForm()" class="btn-cancel">Annuler</button>
                     </form>
                 </div>
 
@@ -316,21 +320,21 @@
                     document.getElementById('nouveau-groupe-form').classList.remove('show-form');
                 }
                 </script>
-                            <style>
-                            .nouveau-groupe-form {
-                                display: none;
-                                position: fixed;
-                                left: 0; top: 0; right: 0; bottom: 0;
-                                background: rgba(0,0,0,0.18);
-                                z-index: 3000;
-                                align-items: center;
-                                justify-content: center;
-                                animation: fadeInBg 0.3s;
-                            }
-                            .nouveau-groupe-form.show-form {
-                                display: flex;
-                            }
-                            </style>
+                <style>
+                    .nouveau-groupe-form {
+                        display: none;
+                        position: fixed;
+                        left: 0; top: 0; right: 0; bottom: 0;
+                        background: rgba(0,0,0,0.18);
+                        z-index: 3000;
+                        align-items: center;
+                        justify-content: center;
+                        animation: fadeInBg 0.3s;
+                    }
+                    .nouveau-groupe-form.show-form {
+                        display: flex;
+                    }
+                </style>
             </div>
 
             <div class="block">
