@@ -28,7 +28,23 @@ class GroupController extends Controller
      */
     public function store(Request $request)
     {
-        //
+         $request->validate([
+        'name' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'join_code' => 'required|string|unique:groups,join_code',
+    ]);
+
+    $group = Group::create([
+        'name' => $request->name,
+        'description' => $request->description,
+        'join_code' => $request->join_code,
+        'host_id' => auth()->id(), // ✅ ici on ajoute le host_id
+    ]);
+
+    // l’utilisateur qui crée rejoint le groupe automatiquement
+    $group->users()->attach(auth()->id());
+    return redirect()->back()->with('success', 'Groupe créé avec succès.');
+
     }
 
     /**
@@ -62,4 +78,23 @@ class GroupController extends Controller
     {
         //
     }
+
+    public function join(Request $request)
+{
+    $group = Group::where('join_code', $request->join_code)->first();
+
+    if (!$group) {
+        return back()->with('error', 'Code invalide.');
+    }
+
+    // Vérifie si l'utilisateur est déjà dans le groupe
+    if ($group->users->contains(auth()->id())) {
+        return back()->with('message', 'Vous êtes déjà dans ce groupe.');
+    }
+
+    $group->users()->attach(auth()->id());
+
+    return back()->with('success', 'Vous avez rejoint le groupe avec succès !');
+}
+
 }
