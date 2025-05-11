@@ -1,51 +1,37 @@
-name: Laravel CI
+name: Laravel Docker CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main]
 
 jobs:
-  test:
+  laravel-ci:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: laravel_test
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping -ppassword" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
-    - uses: actions/checkout@v3
+      - name:  Cloner le dépôt
+        uses: actions/checkout@v3
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, dom, fileinfo, pdo_mysql
-        coverage: none
+      - name:  Copier .env.example → .env
+        run: cp .env.example .env
 
-    - name: Install dependencies
-      run: |
-        composer install --no-interaction --no-progress
-        npm install
+      - name:  Lancer les conteneurs Docker
+        run: docker-compose up -d --build
 
-    - name: Prepare environment
-      run: |
-        cp .env.example .env
-        php artisan key:generate
-        sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
-        sed -i 's/DB_DATABASE=.*/DB_DATABASE=laravel_test/' .env
-        sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
-        sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=password/' .env
+      - name:  Attendre que MySQL soit prêt
+        run: |
+          echo "Attente de MySQL (15s)..."
+          sleep 15
 
-    - name: Run migrations and tests
-      run: |
-        php artisan migrate --force
-        php artisan test
-        #test ...
+      - name: Exécuter les commandes Laravel dans le conteneur
+        run: |
+          docker exec laravel_app php artisan config:clear
+          docker exec laravel_app php artisan key:generate
+          docker exec laravel_app php artisan migrate --force
+          docker exec laravel_app php artisan test
+
+      - name: Arrêter les conteneurs
+        if: always()
+        run: docker-compose down
