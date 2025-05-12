@@ -11,12 +11,14 @@ class test2Controller extends Controller
     public function index()
     {
         $user = Auth::user();
-        return view('test2', compact('user'));
+        $groups = $user->groups; // doit maintenant fonctionner
+        return view('test2', compact('groups','user'));
     }
 
     public function test2()
     {
         $user = auth()->user();
+        $groups = $user->groups; // récupère les groupes liés via la table pivot
         $friends = $user->friends()->get(); // Récupère la liste des amis
 
         // Fetch all debts where the user is either the lender or the borrower
@@ -31,7 +33,7 @@ class test2Controller extends Controller
             });
 
         // Fetch groups as before
-        $groups = []; // Remplace par ta logique réelle de récupération des groupes
+        //$groups = []; // Remplace par ta logique réelle de récupération des groupes
 
         return view('test2', [
             'user' => $user,

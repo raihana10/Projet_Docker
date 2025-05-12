@@ -203,14 +203,6 @@
                 document.getElementById('friends-block').classList.remove('active');
             }
         </script>
-        <a href="{{ route('notifications.index') }}" style="position:relative;">
-            <i class="ri-notification-line"></i>
-            @if(auth()->check() && auth()->user()->unreadNotifications->count() > 0)
-                <span style="position:absolute; top:-5px; right:-10px; background:#f5222d; color:white; font-size:12px; padding:2px 6px; border-radius:50%;">
-                    {{ auth()->user()->unreadNotifications->count() }}
-                </span>
-            @endif
-        </a>
         <a href="#" id="settings-icon"><i class="ri-settings-3-line"></i></a>
         <div id="settings-menu" style="display:none; position:absolute; right:30px; top:60px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); padding:10px 0; min-width:140px; z-index:1000;">
             <a href="/profile" style="display:block; padding:8px 20px; color:#333; text-decoration:none;">Voir le profil</a>
