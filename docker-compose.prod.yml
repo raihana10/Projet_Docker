@@ -20,6 +20,7 @@ services:
     #where ur files exist inside the container
     volumes:
       - ./:/var/www
+    mem_limit: 128m
 #network something that alows containers to communicate with each other
     networks:
       - laravel_app_network
@@ -58,9 +59,13 @@ services:
       MYSQL_PASSWORD: "docker321"
       MYSQL_ROOT_PASSWORD: "docker123"
     volumes:
-      - laravel_data:/var/lib/mysql   
+      - laravel_data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/my.cnf
+    mem_limit: 256m
     networks:
       - laravel_app_network
+
+#phpmyadmin
   laravel_app_phpmyadmin:
     image: phpmyadmin:5.2.1-apache
     container_name: laravel_phpmyadmin_container
@@ -72,16 +77,6 @@ services:
     environment:
      PMA_HOST: laravel_app_mysql
      PMA_PORT: 3306
-     PMA_USER: root
-     PMA_PASSWORD: password
-    networks:
-      - laravel_app_network
-      
-  laravel_app_redis:
-    image: redis:7.2-alpine
-    container_name: laravel_app_redis_container
-    ports:
-      - "7379:6379"
     networks:
       - laravel_app_network
 volumes:
