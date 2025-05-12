@@ -39,7 +39,7 @@ services:
       - laravel_app
     #port 80 pour nginx, 6162 accès application communicating with 80 inside the container
     ports:
-      - "6162:80"
+      - "80:80"
     volumes:
       - ./:/var/www
       - ./docker-compose/nginx/:/etc/nginx/conf.d
