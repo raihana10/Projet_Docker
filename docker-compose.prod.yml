@@ -1,0 +1,92 @@
+version: '3'
+
+#les dependances: web server, database, php my admin
+services:
+  laravel_app:
+    image: i5m4il/laravel_app_image:latest
+    #container_name: laravel_app
+    #build: 
+     #args:
+      #user: laravel_user
+      #uid: 1000
+     #context: ./
+     #dockerfile: Dockerfile
+    #image: laravel_app_image
+    container_name: laravel_app
+    restart: unless-stopped
+    depends_on:
+      - laravel_app_mysql
+    working_dir: /var/www
+    #where ur files exist inside the container
+    volumes:
+      - ./:/var/www
+#network something that alows containers to communicate with each other
+    networks:
+      - laravel_app_network
+    command: >
+      sh -c "composer install &&
+             php artisan config:clear &&
+             php artisan migrate --force &&
+             php artisan key:generate &&
+             php-fpm"
+
+  #nginx service
+  laravel_webserver:
+    image: nginx:alpine
+    container_name: laravel_app_network
+    restart: unless-stopped
+    depends_on:
+      - laravel_app
+    #port 80 pour nginx, 6162 accès application communicating with 80 inside the container
+    ports:
+      - "6162:80"
+    volumes:
+      - ./:/var/www
+      - ./docker-compose/nginx/:/etc/nginx/conf.d
+    networks:
+      - laravel_app_network
+#mysql service
+  laravel_app_mysql:
+    image: mysql:latest
+    container_name: laravel_app_mysql_container
+    restart: unless-stopped
+    ports:
+      - "3337:3306"
+    environment:
+      MYSQL_DATABASE: "laravel_db"
+      MYSQL_USER: "laravel_user"
+      MYSQL_PASSWORD: "docker321"
+      MYSQL_ROOT_PASSWORD: "docker123"
+    volumes:
+      - laravel_data:/var/lib/mysql   
+    networks:
+      - laravel_app_network
+  laravel_app_phpmyadmin:
+    image: phpmyadmin:5.2.1-apache
+    container_name: laravel_phpmyadmin_container
+    restart: unless-stopped
+    ports:
+      - "8383:80"
+    depends_on:
+      - laravel_app_mysql
+    environment:
+     PMA_HOST: laravel_app_mysql
+     PMA_PORT: 3306
+     PMA_USER: root
+     PMA_PASSWORD: password
+    networks:
+      - laravel_app_network
+      
+  laravel_app_redis:
+    image: redis:7.2-alpine
+    container_name: laravel_app_redis_container
+    ports:
+      - "7379:6379"
+    networks:
+      - laravel_app_network
+volumes:
+  laravel_data:
+    driver: local
+networks:
+  laravel_app_network:
+     driver: bridge
