@@ -6,6 +6,9 @@
     <title>Dashboard</title>
     <!-- Remix Icon CDN pour de belles icônes -->
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap');
         * {
@@ -165,9 +168,91 @@
             pointer-events: auto;
             transform: translateY(0);
         }
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            z-index: 9999;
+            padding: 16px 28px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            animation: fadeIn 0.5s;
+        }
+        .notification.success {
+            background: #e6fff2;
+            color: #008c4a;
+            border: 1px solid #00c97b;
+        }
+        .notification.error {
+            background: #ffeaea;
+            color: #e60000;
+            border: 1px solid #e60000;
+        }
+        .notification.warning {
+            background: #fffbe6;
+            color: #b38f00;
+            border: 1px solid #ffe066;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        #calendar-modal {
+            position: fixed;
+            top: 40px;
+            left: 0; right: 0;
+            margin: auto;
+            width: 350px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 9999;
+            padding: 24px;
+        }
+        #emprunts-modal {
+            position: fixed;
+            top: 60px;
+            left: 0; right: 0;
+            margin: auto;
+            width: 400px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 9999;
+            padding: 24px;
+        }
+        #rapport-modal {
+            position: fixed;
+            top: 60px;
+            left: 0; right: 0;
+            margin: auto;
+            width: 400px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 9999;
+            padding: 24px;
+        }
     </style>
 </head>
 <body>
+@if(session('success'))
+    <div class="notification success">
+        {{ session('success') }}
+    </div>
+@endif
+@if(session('error'))
+    <div class="notification error">
+        {{ session('error') }}
+    </div>
+@endif
+@if(session('one_day_left'))
+    <div class="notification warning">
+        {{ session('one_day_left') }}
+    </div>
+@endif
 <div class="navbar">
     <button class="menu-icon" onclick="toggleSidebar()" style="font-size:24px;background:none;border:none;cursor:pointer;"><i class="ri-menu-3-line"></i></button>
     <div class="icons">
@@ -235,10 +320,16 @@
         <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;font-size:22px;margin-bottom:15px;"><i class="ri-menu-3-line"></i></button>
         <ul>
             <li><a href="/test2"><i class="ri-home-4-line"></i> Accueil</a></li>
-            <li><a href="#"><i class="ri-money-dollar-circle-line"></i> Emprunts </a></li>
+            <li onclick="showEmprunts()" style="cursor:pointer;">
+                <i class="ri-money-dollar-circle-line"></i> Emprunts
+            </li>
             <li><a href="#"><i class="ri-add-circle-line"></i> Nouveau transaction</a></li>
-            <li><a href="#"><i class="ri-bar-chart-2-line"></i> Rapport</a></li>
-            <li><a href="#"><i class="ri-calendar-line"></i> Calendrier</a></li>
+            <li onclick="showRapport()" style="cursor:pointer;">
+                <i class="ri-bar-chart-2-line"></i> Rapport
+            </li>
+            <li onclick="showCalendar()" style="cursor:pointer;">
+                <i class="ri-calendar-line"></i> Calendrier
+            </li>
         </ul>
         <p style="margin-top: 20px; font-weight: bold;">
             Total: 
@@ -355,9 +446,21 @@
                             });
                             $sign = $total >= 0 ? '+' : '-';
                             $lastDate = $userDebts->sortByDesc('created_at')->first()->created_at->format('d/m/Y');
+                            $dueDate = $userDebts->first()->due_date ?? null;
+                            $daysRemaining = $dueDate ? \Carbon\Carbon::parse($dueDate)->diffInDays(now(), false) : null;
                         @endphp
                         <li>
                             {{ $otherUserName }} {{ $sign }}{{ abs($total) }}dh {{ $lastDate }}
+                            @if($dueDate)
+                                <span style="color:#0073e6;">
+                                    (Récupération : {{ \Carbon\Carbon::parse($dueDate)->format('d/m/Y') }})
+                                    @if($daysRemaining >= 0)
+                                        ({{ $daysRemaining }} jour(s) restant(s))
+                                    @else
+                                        (Date dépassée)
+                                    @endif
+                                </span>
+                            @endif
                         </li>
                     @endforeach
                 </ul>
@@ -389,6 +492,10 @@
                                 <option value="unpaid">Non payé</option>
                                 <option value="paid">Payé</option>
                             </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="due_date">Date de récupération :</label>
+                            <input type="text" name="due_date" id="due_date" required>
                         </div>
                         <button type="submit" class="btn-animated">Ajouter</button>
                         <button type="button" onclick="closeEmpruntForm()" class="btn-cancel">Annuler</button>
@@ -498,6 +605,44 @@
                 </script>
             </div>
         </div>
+        <div id="calendar-modal" style="display:none;">
+            <button onclick="hideCalendar()" style="float:right;">Fermer</button>
+            <div id="calendar"></div>
+            <div id="simple-calendar"></div>
+        </div>
+        <div id="emprunts-modal" style="display:none;">
+            <button onclick="hideEmprunts()" style="float:right;">Fermer</button>
+            <h3>Mes emprunts</h3>
+            <ul>
+                @foreach($debts as $debt)
+                    <li>
+                        {{ $debt->name }} : {{ $debt->value }}dh 
+                        @if($debt->due_date)
+                            (à rendre le {{ \Carbon\Carbon::parse($debt->due_date)->format('d/m/Y') }})
+                        @endif
+                        - Statut : {{ $debt->status }}
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+        <div id="rapport-modal" style="display:none;">
+            <button onclick="hideRapport()" style="float:right;">Fermer</button>
+            <h3>Rapport des transactions</h3>
+            <ul>
+                @foreach($debts as $debt)
+                    <li>
+                        {{ $debt->name }} : {{ $debt->value }}dh - 
+                        @if($debt->due_date)
+                            (à rendre le {{ \Carbon\Carbon::parse($debt->due_date)->format('d/m/Y') }})
+                        @endif
+                        - Statut : {{ $debt->status }}
+                    </li>
+                @endforeach
+            </ul>
+            <hr>
+            <strong>Total transactions :</strong>
+            {{ $debts->sum('value') }} dh
+        </div>
     </div>
 </div>
 </body>
@@ -514,6 +659,81 @@
             } else if (!settingsMenu.contains(e.target)) {
                 settingsMenu.style.display = 'none';
             }
+        });
+    });
+
+    // Cache la notification après 4 secondes
+    setTimeout(function() {
+        let notif = document.querySelector('.notification');
+        if(notif) notif.style.display = 'none';
+    }, 4000);
+
+    function showCalendar() {
+        document.getElementById('calendar-modal').style.display = 'block';
+        if (!window.simpleCalendarRendered) {
+            flatpickr("#simple-calendar", {
+                inline: true,
+                locale: "fr",
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Ici tu peux afficher un message si la date correspond à une due_date
+                    // Ex: alert("Tu as une dette à cette date !");
+                }
+            });
+            window.simpleCalendarRendered = true;
+        }
+    }
+
+    function hideCalendar() {
+        document.getElementById('calendar-modal').style.display = 'none';
+    }
+
+    function showEmprunts() {
+        document.getElementById('emprunts-modal').style.display = 'block';
+    }
+    function hideEmprunts() {
+        document.getElementById('emprunts-modal').style.display = 'none';
+    }
+
+    function showRapport() {
+        document.getElementById('rapport-modal').style.display = 'block';
+    }
+    function hideRapport() {
+        document.getElementById('rapport-modal').style.display = 'none';
+    }
+</script>
+<pre>
+    {!! json_encode($calendarEvents, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
+</pre>
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+
+<?php
+$calendarEvents = collect($debts)
+    ->filter(fn($debt) => !empty($debt->due_date))
+    ->map(function($debt) {
+        return [
+            'title' => 'Rendre à ' . ($debt->id_to_name ?? $debt->id_to),
+            'start' => $debt->due_date,
+            'message' => "Attention : Il faut rendre l'argent à " . ($debt->id_to_name ?? $debt->id_to) . " ce jour-là !"
+        ];
+    })
+    ->values(); // <-- important pour avoir un tableau indexé
+?>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr("#due_date", {
+            locale: "fr",
+            dateFormat: "Y-m-d",
+            minDate: "today",
+            disableMobile: "true",
+            allowInput: true,
+            altInput: true,
+            altFormat: "d/m/Y",
+            placeholder: "Sélectionnez une date"
         });
     });
 </script>

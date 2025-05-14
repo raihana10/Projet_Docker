@@ -28,7 +28,23 @@ class DebtController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'due_date' => 'required|date',
+        ]);
+
+        Debt::create([
+            'due_date' => $validated['due_date'],
+        ]);
+
+        $debts = Debt::all();
+        foreach ($debts as $debt) {
+            if ($debt->due_date && \Carbon\Carbon::parse($debt->due_date)->diffInDays(now(), false) === 1) {
+                session()->flash('one_day_left', "Attention : Il reste 1 jour pour rendre l'argent à " . ($debt->toUser->name ?? $debt->id_to));
+                break;
+            }
+        }
+
+        return redirect()->back()->with('success', 'Emprunt ajouté avec succès.');
     }
 
     /**
