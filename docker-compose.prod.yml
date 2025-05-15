@@ -4,24 +4,14 @@ version: '3'
 services:
   laravel_app:
     image: i5m4il/laravel_app_image:latest
-    #container_name: laravel_app
-    #build: 
-     #args:
-      #user: laravel_user
-      #uid: 1000
-     #context: ./
-     #dockerfile: Dockerfile
-    #image: laravel_app_image
     container_name: laravel_app
     restart: unless-stopped
     depends_on:
       - laravel_app_mysql
     working_dir: /var/www
-    #where ur files exist inside the container
     volumes:
       - ./:/var/www
     mem_limit: 128m
-#network something that alows containers to communicate with each other
     networks:
       - laravel_app_network
     command: >
@@ -38,7 +28,6 @@ services:
     restart: unless-stopped
     depends_on:
       - laravel_app
-    #port 80 pour nginx, 6162 accès application communicating with 80 inside the container
     ports:
       - "80:80"
     volumes:
