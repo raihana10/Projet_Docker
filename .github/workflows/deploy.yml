@@ -1,11 +1,9 @@
 name: CD Deploy Laravel
 
-
 on:
   push:
     branches:
       - SCRUM-18-deploiment-dans-un-server
-      #test
 
 jobs:
   deploy:
@@ -22,7 +20,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /Projet_Dockergiergi
+            cd /home/laravel/Projet_Docker
             git pull origin main
             docker compose down
             docker compose up -d --build
