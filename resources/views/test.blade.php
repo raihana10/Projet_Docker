@@ -246,7 +246,7 @@
 
 <div class="wrapper">
     <div class="title-text">
-        <div class="title login">Chhal katsalouna !</div>
+        <div class="title login">Chhal katsalouna</div>
         <div class="title signup">Inscription</div>
     </div>
     <div class="form-container">
